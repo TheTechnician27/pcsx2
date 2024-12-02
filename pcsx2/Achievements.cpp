@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-License-Identifier: GPL-3.0+
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 
 #include "Achievements.h"
+#include "BuildVersion.h"
 #include "CDVD/CDVD.h"
 #include "Elfheader.h"
 #include "Host.h"
@@ -16,7 +17,6 @@
 #include "Memory.h"
 #include "SaveState.h"
 #include "VMManager.h"
-#include "svnrev.h"
 #include "vtlb.h"
 
 #include "common/Assertions.h"
@@ -65,6 +65,8 @@ namespace Achievements
 
 	static constexpr float INDICATOR_FADE_IN_TIME = 0.1f;
 	static constexpr float INDICATOR_FADE_OUT_TIME = 0.5f;
+
+	static constexpr size_t URL_BUFFER_SIZE = 256;
 
 	// Some API calls are really slow. Set a longer timeout.
 	static constexpr float SERVER_CALL_TIMEOUT = 60.0f;
@@ -199,6 +201,7 @@ namespace Achievements
 	static std::string s_game_hash;
 	static std::string s_game_title;
 	static std::string s_game_icon;
+	static std::string s_game_icon_url;
 	static u32 s_game_crc;
 	static rc_client_user_game_summary_t s_game_summary;
 	static u32 s_game_id = 0;
@@ -401,6 +404,10 @@ const std::string& Achievements::GetRichPresenceString()
 	return s_rich_presence_string;
 }
 
+const std::string& Achievements::GetGameIconURL()
+{
+	return s_game_icon_url;
+}
 
 bool Achievements::Initialize()
 {
@@ -799,7 +806,7 @@ void Achievements::UpdateRichPresence(std::unique_lock<std::recursive_mutex>& lo
 	if (!s_has_rich_presence || !s_rich_presence_poll_time.ResetIfSecondsPassed(1.0))
 		return;
 
-	char buffer[512];
+	char buffer[URL_BUFFER_SIZE];
 	const size_t res = rc_client_get_rich_presence_message(s_client, buffer, std::size(buffer));
 	const std::string_view sv(buffer, res);
 	if (s_rich_presence_string == sv)
@@ -945,25 +952,26 @@ void Achievements::ClientLoadGameCallback(int result, const char* error_message,
 	s_has_leaderboards = has_leaderboards;
 	s_has_rich_presence = rc_client_has_rich_presence(client);
 	s_game_icon = {};
+	s_game_icon_url = {};
 
 	// ensure fullscreen UI is ready for notifications
 	MTGS::RunOnGSThread(&ImGuiManager::InitializeFullscreenUI);
 
+	char url_buffer[URL_BUFFER_SIZE];
+	if (int err = rc_client_game_get_image_url(info, url_buffer, std::size(url_buffer)); err == RC_OK)
+	{
+		s_game_icon_url = url_buffer;
+	}
+	else
+	{
+		ReportRCError(err, "rc_client_game_get_image_url() failed: ");
+	}
+
 	if (const std::string_view badge_name = info->badge_name; !badge_name.empty())
 	{
 		s_game_icon = Path::Combine(s_image_directory, fmt::format("game_{}.png", info->id));
-		if (!FileSystem::FileExists(s_game_icon.c_str()))
-		{
-			char buf[512];
-			if (int err = rc_client_game_get_image_url(info, buf, std::size(buf)); err == RC_OK)
-			{
-				DownloadImage(buf, s_game_icon);
-			}
-			else
-			{
-				ReportRCError(err, "rc_client_game_get_image_url() failed: ");
-			}
-		}
+		if (!s_game_icon.empty() && !s_game_icon_url.empty() && !FileSystem::FileExists(s_game_icon.c_str()))
+			DownloadImage(s_game_icon_url, s_game_icon);
 	}
 
 	UpdateGameSummary();
@@ -990,6 +998,7 @@ void Achievements::ClearGameInfo()
 	s_game_id = 0;
 	s_game_title = {};
 	s_game_icon = {};
+	s_game_icon_url = {};
 	s_has_achievements = false;
 	s_has_leaderboards = false;
 	s_has_rich_presence = false;
@@ -1052,8 +1061,8 @@ void Achievements::DisplayHardcoreDeferredMessage()
 		if (VMManager::HasValidVM() && EmuConfig.Achievements.HardcoreMode && !s_hardcore_mode &&
 			ImGuiManager::InitializeFullscreenUI())
 		{
-			ImGuiFullscreen::ShowToast(
-				std::string(), TRANSLATE_STR("Achievements", "Hardcore mode will be enabled on system reset."),
+			Host::AddIconOSDMessage(
+				"hardcore_on_reset", ICON_PF_DUMBELL, TRANSLATE_STR("Achievements", "Hardcore mode will be enabled on system reset."),
 				Host::OSD_WARNING_DURATION);
 		}
 	});
@@ -1343,9 +1352,8 @@ void Achievements::HandleServerDisconnectedEvent(const rc_client_event_t* event)
 	MTGS::RunOnGSThread([]() {
 		if (ImGuiManager::InitializeFullscreenUI())
 		{
-			ImGuiFullscreen::ShowToast(TRANSLATE_STR("Achievements", "Achievements Disconnected"),
-				TRANSLATE_STR("Achievements", "An unlock request could not be completed. We will keep retrying to submit this request."),
-				Host::OSD_ERROR_DURATION);
+			ImGuiFullscreen::AddNotification("achievements_disconnect", Host::OSD_ERROR_DURATION, TRANSLATE_STR("Achievements", "Achievements Disconnected"),
+				TRANSLATE_STR("Achievements", "An unlock request could not be completed. We will keep retrying to submit this request."), s_game_icon);
 		}
 	});
 }
@@ -1357,8 +1365,8 @@ void Achievements::HandleServerReconnectedEvent(const rc_client_event_t* event)
 	MTGS::RunOnGSThread([]() {
 		if (ImGuiManager::InitializeFullscreenUI())
 		{
-			ImGuiFullscreen::ShowToast(TRANSLATE_STR("Achievements", "Achievements Reconnected"),
-				TRANSLATE_STR("Achievements", "All pending unlock requests have completed."), Host::OSD_INFO_DURATION);
+			ImGuiFullscreen::AddNotification("achievements_reconnect", Host::OSD_INFO_DURATION, TRANSLATE_STR("Achievements", "Achievements Reconnected"),
+				TRANSLATE_STR("Achievements", "All pending unlock requests have completed."), s_game_icon);
 		}
 	});
 }
@@ -1445,7 +1453,7 @@ void Achievements::SetHardcoreMode(bool enabled, bool force_display_message)
 		MTGS::RunOnGSThread([enabled]() {
 			if (ImGuiManager::InitializeFullscreenUI())
 			{
-				ImGuiFullscreen::ShowToast(std::string(),
+				Host::AddIconOSDMessage("hardcore_status", ICON_PF_DUMBELL,
 					enabled ? TRANSLATE_STR("Achievements", "Hardcore mode is now enabled.") :
 							  TRANSLATE_STR("Achievements", "Hardcore mode is now disabled."),
 					Host::OSD_INFO_DURATION);
@@ -1581,7 +1589,7 @@ std::string Achievements::GetAchievementBadgePath(const rc_client_achievement_t*
 
 	if (!FileSystem::FileExists(path.c_str()))
 	{
-		char buf[512];
+		char buf[URL_BUFFER_SIZE];
 		const int res = rc_client_achievement_get_image_url(achievement, state, buf, std::size(buf));
 		if (res == RC_OK)
 			DownloadImage(buf, path);
@@ -1609,7 +1617,7 @@ std::string Achievements::GetLeaderboardUserBadgePath(const rc_client_leaderboar
 
 	if (!FileSystem::FileExists(path.c_str()))
 	{
-		char buf[512];
+		char buf[URL_BUFFER_SIZE];
 		const int res = rc_client_leaderboard_entry_get_user_image_url(entry, buf, std::size(buf));
 		if (res == RC_OK)
 			DownloadImage(buf, path);
@@ -1783,7 +1791,7 @@ std::string Achievements::GetLoggedInUserBadgePath()
 	badge_path = GetUserBadgePath(user->username);
 	if (!FileSystem::FileExists(badge_path.c_str())) [[unlikely]]
 	{
-		char url[512];
+		char url[URL_BUFFER_SIZE];
 		const int res = rc_client_user_get_image_url(user, url, std::size(url));
 		if (res == RC_OK)
 			DownloadImage(url, badge_path);
@@ -1858,7 +1866,7 @@ void Achievements::ConfirmHardcoreModeDisableAsync(const char* trigger, std::fun
 	MTGS::RunOnGSThread([trigger = TinyString(trigger), callback = std::move(callback)]() {
 		if (!FullscreenUI::Initialize())
 		{
-			Host::AddOSDMessage(fmt::format(TRANSLATE_FS("Cannot {} while hardcode mode is active.", trigger)),
+			Host::AddOSDMessage(fmt::format(TRANSLATE_FS("Cannot {} while hardcore mode is active.", trigger)),
 				Host::OSD_WARNING_DURATION);
 			callback(false);
 			return;
@@ -2931,7 +2939,8 @@ void Achievements::LeaderboardFetchNearbyCallback(
 
 	if (result != RC_OK)
 	{
-		ImGuiFullscreen::ShowToast(TRANSLATE("Achievements", "Leaderboard download failed"), error_message);
+		ImGuiFullscreen::AddNotification("leaderboard_dl_fail", Host::OSD_INFO_DURATION,
+			TRANSLATE("Achievements", "Leaderboard Download Failed"), error_message, s_game_icon);
 		CloseLeaderboard();
 		return;
 	}
@@ -2950,7 +2959,8 @@ void Achievements::LeaderboardFetchAllCallback(
 
 	if (result != RC_OK)
 	{
-		ImGuiFullscreen::ShowToast(TRANSLATE("Achievements", "Leaderboard download failed"), error_message);
+		ImGuiFullscreen::AddNotification("leaderboard_dl_fail", Host::OSD_INFO_DURATION,
+			TRANSLATE("Achievements", "Leaderboard Download Failed"), error_message, s_game_icon);
 		CloseLeaderboard();
 		return;
 	}
@@ -3029,7 +3039,7 @@ void Achievements::SwitchToRAIntegration()
 
 void Achievements::RAIntegration::InitializeRAIntegration(void* main_window_handle)
 {
-	RA_InitClient((HWND)main_window_handle, "PCSX2", GIT_TAG);
+	RA_InitClient((HWND)main_window_handle, "PCSX2", BuildVersion::GitTag);
 	RA_SetUserAgentDetail(Host::GetHTTPUserAgent().c_str());
 
 	RA_InstallSharedFunctions(RACallbackIsActive, RACallbackCauseUnpause, RACallbackCausePause, RACallbackRebuildMenu,

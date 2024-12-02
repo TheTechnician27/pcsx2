@@ -1,14 +1,14 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "Achievements.h"
+#include "BuildVersion.h"
 #include "CDVD/CDVD.h"
 #include "CDVD/IsoReader.h"
 #include "Counters.h"
 #include "DEV9/DEV9.h"
 #include "DebugTools/DebugInterface.h"
-#include "DebugTools/MIPSAnalyst.h"
-#include "DebugTools/SymbolMap.h"
+#include "DebugTools/SymbolImporter.h"
 #include "Elfheader.h"
 #include "FW.h"
 #include "GS.h"
@@ -41,7 +41,6 @@
 #include "Vif_Dynarec.h"
 #include "VMManager.h"
 #include "ps2/BiosTools.h"
-#include "svnrev.h"
 
 #include "common/Console.h"
 #include "common/Error.h"
@@ -233,7 +232,7 @@ bool VMManager::PerformEarlyHardwareChecks(const char** error)
 	const size_t runtime_host_page_size = HostSys::GetRuntimePageSize();
 	if (__pagesize != runtime_host_page_size)
 	{
-		*error = "Page size mismatch. This build cannot run on your Mac.\n\n" COMMON_DOWNLOAD_MESSAGE;
+		*error = "Page size mismatch. This build cannot run on your system.\n\n" COMMON_DOWNLOAD_MESSAGE;
 		return false;
 	}
 #endif
@@ -447,12 +446,13 @@ void VMManager::Internal::CPUThreadShutdown()
 
 	// Ensure emulog gets flushed.
 	Log::SetFileOutputLevel(LOGLEVEL_NONE, std::string());
+
+	R5900SymbolImporter.ShutdownWorkerThread();
 }
 
 void VMManager::Internal::SetFileLogPath(std::string path)
 {
 	s_log_force_file_log = Log::SetFileOutputLevel(LOGLEVEL_DEBUG, std::move(path));
-	emuLog = Log::GetFileLogHandle();
 }
 
 void VMManager::Internal::SetBlockSystemConsole(bool block)
@@ -475,12 +475,6 @@ void VMManager::UpdateLoggingSettings(SettingsInterface& si)
 	if (system_console_enabled != Log::IsConsoleOutputEnabled())
 		Log::SetConsoleOutputLevel(system_console_enabled ? level : LOGLEVEL_NONE);
 
-	if (file_logging_enabled != Log::IsFileOutputEnabled())
-	{
-		std::string path = Path::Combine(EmuFolders::Logs, "emulog.txt");
-		Log::SetFileOutputLevel(file_logging_enabled ? level : LOGLEVEL_NONE, std::move(path));
-	}
-
 	// Debug console only exists on Windows.
 #ifdef _WIN32
 	const bool debug_console_enabled = IsDebuggerPresent() && si.GetBoolValue("Logging", "EnableDebugConsole", false);
@@ -495,17 +489,26 @@ void VMManager::UpdateLoggingSettings(SettingsInterface& si)
 	const bool any_logging_sinks = system_console_enabled || log_window_enabled || file_logging_enabled || debug_console_enabled;
 
 	const bool ee_console_enabled = any_logging_sinks && si.GetBoolValue("Logging", "EnableEEConsole", false);
-	SysConsole.eeConsole.Enabled = ee_console_enabled;
+	ConsoleLogging.eeConsole.Enabled = ee_console_enabled;
 
-	SysConsole.iopConsole.Enabled = any_logging_sinks && si.GetBoolValue("Logging", "EnableIOPConsole", false);
-	SysTrace.IOP.R3000A.Enabled = true;
-	SysTrace.IOP.COP2.Enabled = true;
-	SysTrace.IOP.Memory.Enabled = true;
-	SysTrace.SIF.Enabled = true;
+	ConsoleLogging.iopConsole.Enabled = any_logging_sinks && si.GetBoolValue("Logging", "EnableIOPConsole", false);
+	TraceLogging.IOP.R3000A.Enabled = true;
+	TraceLogging.IOP.COP2.Enabled = true;
+	TraceLogging.IOP.Memory.Enabled = true;
+	TraceLogging.SIF.Enabled = true;
 
 	// Input Recording Logs
-	SysConsole.recordingConsole.Enabled = any_logging_sinks && si.GetBoolValue("Logging", "EnableInputRecordingLogs", true);
-	SysConsole.controlInfo.Enabled = any_logging_sinks && si.GetBoolValue("Logging", "EnableControllerLogs", false);
+	ConsoleLogging.recordingConsole.Enabled = any_logging_sinks && si.GetBoolValue("Logging", "EnableInputRecordingLogs", true);
+	ConsoleLogging.controlInfo.Enabled = any_logging_sinks && si.GetBoolValue("Logging", "EnableControllerLogs", false);
+
+	// Sync the trace settings with the config.
+	EmuConfig.Trace.SyncToConfig();
+	// Set the output level if file logging or trace logs have changed.
+	if (file_logging_enabled != Log::IsFileOutputEnabled() || (EmuConfig.Trace.Enabled && Log::GetMaxLevel() < LOGLEVEL_TRACE))
+	{
+		std::string path = Path::Combine(EmuFolders::Logs, "emulog.txt");
+		Log::SetFileOutputLevel(file_logging_enabled ? EmuConfig.Trace.Enabled ? LOGLEVEL_TRACE : level : LOGLEVEL_NONE, std::move(path));
+	}
 }
 
 void VMManager::SetDefaultLoggingSettings(SettingsInterface& si)
@@ -518,6 +521,11 @@ void VMManager::SetDefaultLoggingSettings(SettingsInterface& si)
 	si.SetBoolValue("Logging", "EnableIOPConsole", false);
 	si.SetBoolValue("Logging", "EnableInputRecordingLogs", true);
 	si.SetBoolValue("Logging", "EnableControllerLogs", false);
+
+	EmuConfig.Trace.Enabled = false;
+	EmuConfig.Trace.EE.bitset = 0;
+	EmuConfig.Trace.IOP.bitset = 0;
+	EmuConfig.Trace.MISC.bitset = 0;
 }
 
 bool VMManager::Internal::CheckSettingsVersion()
@@ -659,11 +667,6 @@ void VMManager::LoadInputBindings(SettingsInterface& si, std::unique_lock<std::m
 			InputManager::ReloadBindings(si, *isi, si);
 			Host::Internal::SetInputSettingsLayer(s_input_settings_interface.get(), lock);
 		}
-	}
-	else if (SettingsInterface* gsi = Host::Internal::GetGameSettingsLayer();
-			 gsi && gsi->GetBoolValue("Pad", "UseGameSettingsForController", false))
-	{
-		InputManager::ReloadBindings(si, *gsi, si);
 	}
 	else
 	{
@@ -880,6 +883,9 @@ void VMManager::RequestDisplaySize(float scale /*= 0.0f*/)
 		case AspectRatioType::R16_9:
 			x_scale = (16.0f / 9.0f) / (static_cast<float>(iwidth) / static_cast<float>(iheight));
 			break;
+		case AspectRatioType::R10_7:
+			x_scale = (10.0f / 7.0f) / (static_cast<float>(iwidth) / static_cast<float>(iheight));
+			break;
 		case AspectRatioType::Stretch:
 		default:
 			x_scale = 1.0f;
@@ -941,10 +947,7 @@ bool VMManager::UpdateGameSettingsLayer()
 
 	std::string input_profile_name;
 	if (new_interface)
-	{
-		if (!new_interface->GetBoolValue("Pad", "UseGameSettingsForController", false))
-			new_interface->GetStringValue("EmuCore", "InputProfileName", &input_profile_name);
-	}
+		new_interface->GetStringValue("EmuCore", "InputProfileName", &input_profile_name);
 
 	if (!s_game_settings_interface && !new_interface && s_input_profile_name == input_profile_name)
 		return false;
@@ -1133,9 +1136,6 @@ void VMManager::HandleELFChange(bool verbose_patches_if_changed)
 	Console.WriteLn(Color_StrongOrange, fmt::format("ELF changed, active CRC {:08X} ({})", crc_to_report, s_elf_path));
 	Patch::ReloadPatches(s_disc_serial, crc_to_report, false, false, false, verbose_patches_if_changed);
 	ApplyCoreSettings();
-
-	MIPSAnalyst::ScanForFunctions(
-		R5900SymbolMap, s_elf_text_range.first, s_elf_text_range.first + s_elf_text_range.second, true);
 }
 
 void VMManager::UpdateELFInfo(std::string elf_path)
@@ -1159,6 +1159,8 @@ void VMManager::UpdateELFInfo(std::string elf_path)
 	s_elf_entry_point = elfo.GetEntryPoint();
 	s_elf_text_range = elfo.GetTextRange();
 	s_elf_path = std::move(elf_path);
+
+	R5900SymbolImporter.OnElfChanged(elfo.ReleaseData(), s_elf_path);
 }
 
 void VMManager::ClearELFInfo()
@@ -1417,9 +1419,9 @@ bool VMManager::Initialize(VMBootParameters boot_params)
 
 				Achievements::ConfirmHardcoreModeDisableAsync(trigger,
 					[boot_params = std::move(boot_params)](bool approved) mutable {
-					if (approved && Initialize(std::move(boot_params)))
-						SetState(VMState::Running);
-				});
+						if (approved && Initialize(std::move(boot_params)))
+							SetState(VMState::Running);
+					});
 
 				return false;
 			}
@@ -1695,6 +1697,8 @@ void VMManager::Reset()
 	ClearELFInfo();
 	if (elf_was_changed)
 		HandleELFChange(false);
+
+	Achievements::ResetClient();
 
 	mmap_ResetBlockTracking();
 	memSetExtraMemMode(EmuConfig.Cpu.ExtraMemory);
@@ -2370,8 +2374,7 @@ inline void LogUserPowerPlan()
 }
 #endif
 
-#if 0
-#if defined(__linux__) || defined(_WIN32)
+#if defined(_WIN32)
 void LogGPUCapabilities()
 {
 	Console.WriteLn(Color_StrongBlack, "Graphics Adapters Detected:");
@@ -2484,11 +2487,10 @@ void LogGPUCapabilities()
 #endif
 }
 #endif
-#endif
 
 void VMManager::LogCPUCapabilities()
 {
-	Console.WriteLn(Color_StrongGreen, "PCSX2 " GIT_REV);
+	Console.WriteLn(Color_StrongGreen, "PCSX2 %s", BuildVersion::GitRev);
 	Console.WriteLnFmt("Savestate version: 0x{:x}\n", g_SaveVersion);
 	Console.WriteLn();
 
@@ -2503,21 +2505,28 @@ void VMManager::LogCPUCapabilities()
 	Console.WriteLnFmt("  Processor        = {}", cpuinfo_get_package(0)->name);
 	Console.WriteLnFmt("  Core Count       = {} cores", cpuinfo_get_cores_count());
 	Console.WriteLnFmt("  Thread Count     = {} threads", cpuinfo_get_processors_count());
+	Console.WriteLnFmt("  Cluster Count    = {} clusters", cpuinfo_get_clusters_count());
 #ifdef _WIN32
 	LogUserPowerPlan();
 #endif
 
 #ifdef _M_X86
-	std::string features;
+	std::string extensions;
 	if (cpuinfo_has_x86_avx())
-		features += "AVX ";
+		extensions += "AVX ";
 	if (cpuinfo_has_x86_avx2())
-		features += "AVX2 ";
+		extensions += "AVX2 ";
+	if (cpuinfo_has_x86_avx512f())
+		extensions += "AVX512F ";
+#ifdef _M_ARM64
+	if (cpuinfo_has_arm_neon())
+		extensions += "NEON ";
+#endif
 
-	StringUtil::StripWhitespace(&features);
+	StringUtil::StripWhitespace(&extensions);
 
-	Console.WriteLn(Color_StrongBlack, "x86 Features Detected:");
-	Console.WriteLnFmt("  {}", features);
+	Console.WriteLn(Color_StrongBlack, "CPU Extensions Detected:");
+	Console.WriteLnFmt("  {}", extensions);
 	Console.WriteLn();
 #endif
 
@@ -2532,7 +2541,7 @@ void VMManager::LogCPUCapabilities()
 	}
 #endif
 
-#if 0
+#if defined(_WIN32)
 	LogGPUCapabilities();
 #endif
 }
@@ -3095,7 +3104,7 @@ void VMManager::WarnAboutUnsafeSettings()
 		append(ICON_FA_TACHOMETER_ALT,
 			TRANSLATE_SV("VMManager", "Cycle rate/skip is not at default, this may crash or make games run too slow."));
 	}
-	
+
 	const bool is_sw_renderer = EmuConfig.GS.Renderer == GSRendererType::SW;
 	if (!is_sw_renderer)
 	{
@@ -3144,6 +3153,15 @@ void VMManager::WarnAboutUnsafeSettings()
 		{
 			append(ICON_FA_IMAGES,
 				TRANSLATE_SV("VMManager", "Mipmapping is disabled. This may break rendering in some games."));
+		}
+		static bool render_change_warn = false;
+		if (EmuConfig.GS.Renderer != GSRendererType::Auto && EmuConfig.GS.Renderer != GSRendererType::SW && !render_change_warn)
+		{
+			// show messagesbox
+			render_change_warn = true;
+
+			append(ICON_FA_EXCLAMATION_CIRCLE,
+				TRANSLATE_SV("VMManager", "Renderer is not set to Automatic. This may cause performance problems and graphical issues."));
 		}
 	}
 	if (EmuConfig.GS.TextureFiltering != BiFiltering::PS2)
@@ -3610,15 +3628,23 @@ void VMManager::UpdateDiscordPresence(bool update_session_time)
 	// https://discord.com/developers/docs/rich-presence/how-to#updating-presence-update-presence-payload-fields
 	DiscordRichPresence rp = {};
 	rp.largeImageKey = "4k-pcsx2";
-	rp.largeImageText = "PCSX2 Emulator";
+	rp.largeImageText = "PCSX2 PS2 Emulator";
 	rp.startTimestamp = s_discord_presence_time_epoch;
-	rp.details = s_title.empty() ? "No Game Running" : s_title.c_str();
+	rp.details = s_title.empty() ? TRANSLATE("VMManager", "No Game Running") : s_title.c_str();
 
 	std::string state_string;
+
+	auto lock = Achievements::GetLock();
+
 	if (Achievements::HasRichPresence())
 	{
-		state_string = StringUtil::Ellipsise(Achievements::GetRichPresenceString(), 128);
-		rp.state = state_string.c_str();
+		rp.state = (state_string = StringUtil::Ellipsise(Achievements::GetRichPresenceString(), 128)).c_str();
+
+		if (const std::string& icon_url = Achievements::GetGameIconURL(); !icon_url.empty())
+		{
+			rp.largeImageKey = icon_url.c_str();
+			rp.largeImageText = s_title.c_str();
+		}
 	}
 
 	Discord_UpdatePresence(&rp);

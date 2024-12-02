@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "CDVD/CDVD.h"
 #include "Elfheader.h"
@@ -99,14 +99,14 @@ const char* GameList::EntryTypeToString(EntryType type)
 
 const char* GameList::EntryTypeToDisplayString(EntryType type)
 {
-	static std::array<const char*, static_cast<int>(EntryType::Count)> names = {{"PS2 Disc", "PS1 Disc", "ELF"}};
+	static std::array<const char*, static_cast<int>(EntryType::Count)> names = {{TRANSLATE("GameList", "PS2 Disc"), TRANSLATE("GameList", "PS1 Disc"), TRANSLATE("GameList", "ELF")}};
 	return names[static_cast<int>(type)];
 }
 
 const char* GameList::RegionToString(Region region)
 {
 	static std::array<const char*, static_cast<int>(Region::Count)> names = {{"NTSC-B", "NTSC-C", "NTSC-HK", "NTSC-J", "NTSC-K", "NTSC-T",
-		"NTSC-U", "Other", "PAL-A", "PAL-AF", "PAL-AU", "PAL-BE", "PAL-E", "PAL-F", "PAL-FI", "PAL-G", "PAL-GR", "PAL-I", "PAL-IN", "PAL-M",
+		"NTSC-U", TRANSLATE("GameList", "Other"), "PAL-A", "PAL-AF", "PAL-AU", "PAL-BE", "PAL-E", "PAL-F", "PAL-FI", "PAL-G", "PAL-GR", "PAL-I", "PAL-IN", "PAL-M",
 		"PAL-NL", "PAL-NO", "PAL-P", "PAL-PL", "PAL-R", "PAL-S", "PAL-SC", "PAL-SW", "PAL-SWI", "PAL-UK"}};
 
 	return names[static_cast<int>(region)];
@@ -117,14 +117,14 @@ const char* GameList::EntryCompatibilityRatingToString(CompatibilityRating ratin
 	// clang-format off
 	switch (rating)
 	{
-	case CompatibilityRating::Unknown: return "Unknown";
-	case CompatibilityRating::Nothing: return "Nothing";
-	case CompatibilityRating::Intro: return "Intro";
-	case CompatibilityRating::Menu: return "Menu";
-	case CompatibilityRating::InGame: return "InGame";
-	case CompatibilityRating::Playable: return "Playable";
-	case CompatibilityRating::Perfect: return "Perfect";
-	default: return "";
+		case CompatibilityRating::Unknown:  return TRANSLATE("GameList", "Unknown");
+		case CompatibilityRating::Nothing:  return TRANSLATE("GameList", "Nothing");
+		case CompatibilityRating::Intro:    return TRANSLATE("GameList", "Intro");
+		case CompatibilityRating::Menu:     return TRANSLATE("GameList", "Menu");
+		case CompatibilityRating::InGame:   return TRANSLATE("GameList", "In-Game");
+		case CompatibilityRating::Playable: return TRANSLATE("GameList", "Playable");
+		case CompatibilityRating::Perfect:  return TRANSLATE("GameList", "Perfect");
+		default: return "";
 	}
 	// clang-format on
 }
@@ -623,7 +623,7 @@ void GameList::ScanDirectory(const char* path, bool recursive, bool only_cache, 
 		}
 
 		const std::string_view filename = Path::GetFileName(ffd.FileName);
-		progress->SetFormattedStatusText(fmt::format(TRANSLATE_FS("GameList","Scanning {}..."), filename.data()).c_str());
+		progress->SetStatusText(fmt::format(TRANSLATE_FS("GameList","Scanning {}..."), filename.data()).c_str());
 		ScanFile(std::move(ffd.FileName), ffd.ModificationTime, lock, played_time_map, custom_attributes_ini);
 		progress->SetProgressValue(files_scanned);
 	}

@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
 
@@ -176,6 +176,8 @@ enum class HWBlendType
 	SRC_ALPHA_DST_FACTOR    = 2, // Use the dest color as blend factor, Cs is set to (Alpha - 1).
 	SRC_DOUBLE              = 3, // Double source color.
 	SRC_HALF_ONE_DST_FACTOR = 4, // Use the dest color as blend factor, Cs is set to 0.5, additionally divide As or Af by 2.
+	SRC_INV_DST_BLEND_HALF  = 5, // Halve the alpha then double the final result.
+	INV_SRC_DST_BLEND_HALF  = 6, // Halve the alpha then double the final result.
 
 	BMIX1_ALPHA_HIGH_ONE    = 1, // Blend formula is replaced when alpha is higher than 1.
 	BMIX1_SRC_HALF          = 2, // Impossible blend will always be wrong on hw, divide Cs by 2.
@@ -715,16 +717,16 @@ struct alignas(16) GSHWDrawConfig
 
 	AlphaPass alpha_second_pass;
 
-	struct BlendPass
+	struct BlendMultiPass
 	{
 		BlendState blend;
 		u8 blend_hw;
 		u8 dither;
 		bool enable;
 	};
-	static_assert(sizeof(BlendPass) == 8, "blend pass is 8 bytes");
+	static_assert(sizeof(BlendMultiPass) == 8, "blend multi pass is 8 bytes");
 
-	BlendPass blend_second_pass;
+	BlendMultiPass blend_multi_pass;
 
 	VSConstantBuffer cb_vs;
 	PSConstantBuffer cb_ps;
@@ -803,6 +805,7 @@ public:
 	// clang-format on
 
 protected:
+	std::string m_name = "Unknown";
 	FeatureSupport m_features;
 	u32 m_max_texture_size = 0;
 
@@ -867,6 +870,9 @@ protected:
 public:
 	GSDevice();
 	virtual ~GSDevice();
+
+	/// Returns a string containing current adapter in use.
+	const std::string& GetName() const { return m_name; }
 
 	/// Returns a string representing the specified API.
 	static const char* RenderAPIToString(RenderAPI api);

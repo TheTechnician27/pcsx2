@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
 
@@ -197,7 +197,7 @@ template< typename T>
 static __ri void IopHwTraceLog( u32 addr, T val, bool mode )
 {
 	if (!IsDevBuild) return;
-	if (!EmuConfig.Trace.Enabled || !EmuConfig.Trace.IOP.m_EnableAll || !EmuConfig.Trace.IOP.m_EnableRegisters) return;
+	if (!EmuConfig.Trace.Enabled) return;
 
 	std::string labelStr(fmt::format("Hw{}{}", mode ? "Read" : "Write", sizeof(T) * 8));
 	std::string valStr;

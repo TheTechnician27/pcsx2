@@ -54,6 +54,7 @@ endif(WIN32)
 # Main pcsx2 source
 set(pcsx2Sources
 	Achievements.cpp
+	BuildVersion.cpp
 	Cache.cpp
 	COP0.cpp
 	COP2.cpp
@@ -140,6 +141,7 @@ set(pcsx2Sources
 # Main pcsx2 header
 set(pcsx2Headers
 	Achievements.h
+	BuildVersion.h
 	Cache.h
 	Common.h
 	Config.h
@@ -379,14 +381,18 @@ set(pcsx2USBSources
 	USB/usb-lightgun/guncon2.cpp
 	USB/usb-mic/audiodev-cubeb.cpp
 	USB/usb-mic/usb-headset.cpp
-	USB/usb-mic/usb-mic-logitech.cpp
-	USB/usb-mic/usb-mic-singstar.cpp
+	USB/usb-mic/usb-mic.cpp
 	USB/usb-msd/usb-msd.cpp
 	USB/usb-pad/lg/lg_ff.cpp
+	USB/usb-pad/usb-buzz.cpp
+	USB/usb-pad/usb-gametrak.cpp
+	USB/usb-pad/usb-realplay.cpp
 	USB/usb-pad/usb-pad-ff.cpp
 	USB/usb-pad/usb-pad-sdl-ff.cpp
 	USB/usb-pad/usb-pad.cpp
 	USB/usb-pad/usb-seamic.cpp
+	USB/usb-pad/usb-train.cpp
+	USB/usb-pad/usb-trance-vibrator.cpp
 	USB/usb-pad/usb-turntable.cpp
 	USB/usb-printer/usb-printer.cpp
 )
@@ -414,11 +420,16 @@ set(pcsx2USBHeaders
 	USB/usb-mic/audiodev-noop.h
 	USB/usb-mic/audiodev.h
 	USB/usb-mic/usb-headset.h
-	USB/usb-mic/usb-mic-singstar.h
+	USB/usb-mic/usb-mic.h
 	USB/usb-msd/usb-msd.h
 	USB/usb-pad/lg/lg_ff.h
+	USB/usb-pad/usb-buzz.h
+	USB/usb-pad/usb-gametrak.h
+	USB/usb-pad/usb-realplay.h
 	USB/usb-pad/usb-pad-sdl-ff.h
 	USB/usb-pad/usb-pad.h
+	USB/usb-pad/usb-train.h
+	USB/usb-pad/usb-trance-vibrator.h
 	USB/usb-printer/usb-printer.h
 )
 
@@ -428,6 +439,8 @@ set(pcsx2PADSources
 	SIO/Pad/PadBase.cpp
 	SIO/Pad/PadDualshock2.cpp
 	SIO/Pad/PadGuitar.cpp
+	SIO/Pad/PadJogcon.cpp
+	SIO/Pad/PadNegcon.cpp
 	SIO/Pad/PadPopn.cpp
 	SIO/Pad/PadNotConnected.cpp
 )
@@ -436,6 +449,8 @@ set(pcsx2PADHeaders
 	SIO/Pad/PadBase.h
 	SIO/Pad/PadDualshock2.h
 	SIO/Pad/PadGuitar.h
+	SIO/Pad/PadJogcon.h
+	SIO/Pad/PadNegcon.h
 	SIO/Pad/PadPopn.h
 	SIO/Pad/PadNotConnected.h
 	SIO/Pad/PadTypes.h
@@ -775,7 +790,8 @@ set(pcsx2DebugToolsSources
 	DebugTools/MipsAssemblerTables.cpp
 	DebugTools/MipsStackWalk.cpp
 	DebugTools/Breakpoints.cpp
-	DebugTools/SymbolMap.cpp
+	DebugTools/SymbolGuardian.cpp
+	DebugTools/SymbolImporter.cpp
 	DebugTools/DisR3000A.cpp
 	DebugTools/DisR5900asm.cpp
 	DebugTools/DisVU0Micro.cpp
@@ -792,7 +808,8 @@ set(pcsx2DebugToolsHeaders
 	DebugTools/MipsAssemblerTables.h
 	DebugTools/MipsStackWalk.h
 	DebugTools/Breakpoints.h
-	DebugTools/SymbolMap.h
+	DebugTools/SymbolGuardian.h
+	DebugTools/SymbolImporter.h
 	DebugTools/Debug.h
 	DebugTools/DisASM.h
 	DebugTools/DisVUmicro.h
@@ -973,8 +990,8 @@ set(pcsx2x86Sources
 	x86/ix86-32/iR5900Shift.cpp
 	x86/ix86-32/iR5900Templates.cpp
 	x86/ix86-32/recVTLB.cpp
-	x86/newVif_Dynarec.cpp
-	x86/newVif_UnpackSSE.cpp
+	x86/Vif_Dynarec.cpp
+	x86/Vif_UnpackSSE.cpp
 	)
 
 # x86 headers
@@ -1014,15 +1031,15 @@ set(pcsx2x86Headers
 	x86/microVU_Tables.inl
 	x86/microVU_Upper.inl
 	x86/newVif.h
-	x86/newVif_UnpackSSE.h
+	x86/Vif_UnpackSSE.h
 	x86/R5900_Profiler.h
 	)
 
 # ARM64
 set(pcsx2arm64Sources
 	arm64/AsmHelpers.cpp
-	arm64/newVif_Dynarec.cpp
-	arm64/newVif_UnpackNEON.cpp
+	arm64/Vif_Dynarec.cpp
+	arm64/Vif_UnpackNEON.cpp
 	arm64/RecStubs.cpp
 	)
 
@@ -1127,7 +1144,6 @@ target_link_libraries(PCSX2_FLAGS INTERFACE
 	cubeb
 	rcheevos
 	discord-rpc
-	demangler
 	simpleini
 	freesurround
 	SDL2::SDL2
@@ -1137,6 +1153,8 @@ target_link_libraries(PCSX2_FLAGS INTERFACE
 	PNG::PNG
 	LZMA::LZMA
 	Zstd::Zstd
+	demanglegnu
+	ccc
 	${LIBC_LIBRARIES}
 )
 
@@ -1209,6 +1227,10 @@ if (NOT APPLE)
 endif()
 
 fixup_file_properties(PCSX2)
+# Directories like /usr/local/include, /opt/local/include, etc tend to include lots of headers from lots of libraries.
+# Possibly including libraries that we compiled versions of with the dependency build script.
+# To ensure the dependency build script's headers are preferred, push any directories that look like */local/include to the end.
+force_include_last(PCSX2_FLAGS "/(usr|local)/include/?$")
 
 if (APPLE)
 	find_library(METAL_LIBRARY Metal)
@@ -1268,6 +1290,17 @@ function(setup_main_executable target)
 		get_target_property(WINDEPLOYQT_EXE Qt6::windeployqt IMPORTED_LOCATION)
 		install(CODE "execute_process(COMMAND \"${WINDEPLOYQT_EXE}\" \"${CMAKE_SOURCE_DIR}/bin/$<TARGET_FILE_NAME:${target}>\" --plugindir \"${CMAKE_SOURCE_DIR}/bin/QtPlugins\" --no-compiler-runtime --no-system-d3d-compiler --no-system-dxc-compiler --no-translations COMMAND_ERROR_IS_FATAL ANY)")
 		install(CODE "file(WRITE \"${CMAKE_SOURCE_DIR}/bin/qt.conf\" \"[Paths]\\nPlugins = ./QtPlugins\")")
+	endif()
+
+
+	if (UNIX AND NOT APPLE)
+		if (PACKAGE_MODE)
+			install(TARGETS pcsx2-qt DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+			install(DIRECTORY ${CMAKE_SOURCE_DIR}/bin/resources DESTINATION ${CMAKE_INSTALL_FULL_DATADIR}/PCSX2)
+			install(DIRECTORY ${CMAKE_BINARY_DIR}/bin/translations DESTINATION ${CMAKE_INSTALL_FULL_DATADIR}/PCSX2)
+		else()
+			install(TARGETS pcsx2-qt DESTINATION ${CMAKE_SOURCE_DIR}/bin)
+		endif()
 	endif()
 
 	if(APPLE)

@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
 
@@ -107,6 +107,10 @@ namespace Achievements
 	/// Returns the current rich presence string.
 	/// Should be called with the lock held.
 	const std::string& GetRichPresenceString();
+
+	/// Returns the current game icon url.
+	/// Should be called with the lock held.
+	const std::string& GetGameIconURL();
 
 	/// Returns the RetroAchievements title for the current game.
 	/// Should be called with the lock held.

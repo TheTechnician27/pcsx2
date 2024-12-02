@@ -65,7 +65,10 @@ else()
 			find_package(Wayland REQUIRED Egl)
 		endif()
 
-		find_package(Libbacktrace REQUIRED)
+		if(USE_BACKTRACE)
+			find_package(Libbacktrace REQUIRED)
+		endif()
+
 		find_package(PkgConfig REQUIRED)
 		pkg_check_modules(DBUS REQUIRED dbus-1)
 	endif()
@@ -102,15 +105,17 @@ disable_compiler_warnings_for_target(cubeb)
 disable_compiler_warnings_for_target(speex)
 
 # Find the Qt components that we need.
-# Should be 6.7.1, but held back on 6.7.0 because of Flatpak.
-find_package(Qt6 6.7.0 COMPONENTS CoreTools Core GuiTools Gui WidgetsTools Widgets LinguistTools REQUIRED)
+find_package(Qt6 6.7.2 COMPONENTS CoreTools Core GuiTools Gui WidgetsTools Widgets LinguistTools REQUIRED)
 
 if(WIN32)
   add_subdirectory(3rdparty/rainterface EXCLUDE_FROM_ALL)
 endif()
 
-# Demangler for the debugger
+# Demangler for the debugger.
 add_subdirectory(3rdparty/demangler EXCLUDE_FROM_ALL)
+
+# Symbol table parser.
+add_subdirectory(3rdparty/ccc EXCLUDE_FROM_ALL)
 
 # Architecture-specific.
 if(_M_X86)

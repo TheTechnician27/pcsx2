@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 // ======================================================================================
 //  spu2sys.cpp -- Emulation module for the SPU2 'virtual machine'
@@ -420,10 +420,11 @@ __forceinline void UpdateSpdifMode()
 {
 	const int OPM = PlayMode;
 
-	if (Spdif.Out & 0x4 && SPU2::MsgToConsole()) // use 24/32bit PCM data streaming
+	if (Spdif.Out & 0x4) // use 24/32bit PCM data streaming
 	{
 		PlayMode = 8;
-		SPU2::ConLog("* SPU2: WARNING: Possibly CDDA mode set!\n");
+		if (SPU2::MsgToConsole())
+			SPU2::ConLog("* SPU2: WARNING: Possibly CDDA mode set!\n");
 		return;
 	}
 

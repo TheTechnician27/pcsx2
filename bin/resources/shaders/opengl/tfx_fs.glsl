@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 //#version 420 // Keep it for text editor detection
 
@@ -681,15 +681,15 @@ vec4 ps_color()
 	#if PS_SHUFFLE && !PS_READ16_SRC && !PS_SHUFFLE_SAME
 		uvec4 denorm_c_before = uvec4(T);
 		#if (PS_PROCESS_BA & SHUFFLE_READ)
-			T.r = float((denorm_c_before.b << 3) & 0xF8);
-			T.g = float(((denorm_c_before.b >> 2) & 0x38) | ((denorm_c_before.a << 6) & 0xC0));
-			T.b = float((denorm_c_before.a << 1) & 0xF8);
-			T.a = float(denorm_c_before.a & 0x80);
+			T.r = float((denorm_c_before.b << 3) & 0xF8u);
+			T.g = float(((denorm_c_before.b >> 2) & 0x38u) | ((denorm_c_before.a << 6) & 0xC0u));
+			T.b = float((denorm_c_before.a << 1) & 0xF8u);
+			T.a = float(denorm_c_before.a & 0x80u);
 		#else
-			T.r = float((denorm_c_before.r << 3) & 0xF8);
-			T.g = float(((denorm_c_before.r >> 2) & 0x38) | ((denorm_c_before.g << 6) & 0xC0));
-			T.b = float((denorm_c_before.g << 1) & 0xF8);
-			T.a = float(denorm_c_before.g & 0x80);
+			T.r = float((denorm_c_before.r << 3) & 0xF8u);
+			T.g = float(((denorm_c_before.r >> 2) & 0x38u) | ((denorm_c_before.g << 6) & 0xC0u));
+			T.b = float((denorm_c_before.g << 1) & 0xF8u);
+			T.a = float(denorm_c_before.g & 0x80u);
 		#endif
 		
 		T.a = ((T.a >= 127.5f) ? TA.y : ((PS_AEM == 0 || any(bvec3(ivec3(T.rgb) & ivec3(0xF8)))) ? TA.x : 0.0f)) * 255.0f;
@@ -783,9 +783,15 @@ float As = As_rgba.a;
 
 	// PABE
 #if PS_PABE
+	// As_rgba needed for accumulation blend to manipulate Cd.
 	// No blending so early exit
 	if (As < 1.0f)
+	{
+		As_rgba.rgb = vec3(0.0f);
 		return;
+	}
+
+	As_rgba.rgb = vec3(1.0f);
 #endif
 
 #if SW_BLEND_NEEDS_RT
@@ -804,15 +810,15 @@ float As = As_rgba.a;
 	#if PS_SHUFFLE && SW_BLEND_NEEDS_RT
 		uvec4 denorm_rt = uvec4(RT);
 		#if (PS_PROCESS_BA & SHUFFLE_WRITE)
-			RT.r = float((denorm_rt.b << 3) & 0xF8);
-			RT.g = float(((denorm_rt.b >> 2) & 0x38) | ((denorm_rt.a << 6) & 0xC0));
-			RT.b = float((denorm_rt.a << 1) & 0xF8);
-			RT.a = float(denorm_rt.a & 0x80);
+			RT.r = float((denorm_rt.b << 3) & 0xF8u);
+			RT.g = float(((denorm_rt.b >> 2) & 0x38u) | ((denorm_rt.a << 6) & 0xC0u));
+			RT.b = float((denorm_rt.a << 1) & 0xF8u);
+			RT.a = float(denorm_rt.a & 0x80u);
 		#else
-			RT.r = float((denorm_rt.r << 3) & 0xF8);
-			RT.g = float(((denorm_rt.r >> 2) & 0x38) | ((denorm_rt.g << 6) & 0xC0));
-			RT.b = float((denorm_rt.g << 1) & 0xF8);
-			RT.a = float(denorm_rt.g & 0x80);
+			RT.r = float((denorm_rt.r << 3) & 0xF8u);
+			RT.g = float(((denorm_rt.r >> 2) & 0x38u) | ((denorm_rt.g << 6) & 0xC0u));
+			RT.b = float((denorm_rt.g << 1) & 0xF8u);
+			RT.a = float(denorm_rt.g & 0x80u);
 		#endif
 	#endif
 		
@@ -904,17 +910,18 @@ float As = As_rgba.a;
 #endif
 
 #else
+
+#if PS_BLEND_C == 2
+	vec3 Alpha = vec3(Af);
+#else
+	vec3 Alpha = vec3(As);
+#endif
+
 	// Needed for Cd * (As/Ad/F + 1) blending modes
 #if PS_BLEND_HW == 1
 	Color.rgb = vec3(255.0f);
 #elif PS_BLEND_HW == 2
 	// Cd*As,Cd*Ad or Cd*F
-
-#if PS_BLEND_C == 2
-	float Alpha = Af;
-#else
-	float Alpha = As;
-#endif
 
 	Color.rgb = max(vec3(0.0f), (Alpha - vec3(1.0f)));
 	Color.rgb *= vec3(255.0f);
@@ -928,15 +935,20 @@ float As = As_rgba.a;
 	float color_compensate = 255.0f / max(128.0f, max_color);
 	Color.rgb *= vec3(color_compensate);
 #elif PS_BLEND_HW == 4
-	// Needed for Cd * (1 - Ad) and Cd*(1 + Alpha)
+	// Needed for Cd * (1 - Ad) and Cd*(1 + Alpha).
 
-#if PS_BLEND_C == 2
-	float Alpha = Af;
-#else
-	float Alpha = As;
-#endif
-	As_rgba.rgb = vec3(Alpha) * vec3(128.0f / 255.0f);
+	As_rgba.rgb = Alpha * vec3(128.0f / 255.0f);
 	Color.rgb = vec3(127.5f);
+#elif PS_BLEND_HW == 5
+	// Needed for Cs*Alpha + Cd*(1 - Alpha).
+	Alpha *= vec3(128.0f / 255.0f);
+	As_rgba.rgb = (Alpha - vec3(0.5f));
+	Color.rgb = (Color.rgb * Alpha);
+#elif PS_BLEND_HW == 6
+	// Needed for Cd*Alpha + Cs*(1 - Alpha).
+	Alpha *= vec3(128.0f / 255.0f);
+	As_rgba.rgb = Alpha;
+	Color.rgb *= (Alpha - vec3(0.5f));
 #endif
 
 #endif
@@ -1046,11 +1058,11 @@ void ps_main()
 	#if !PS_READ16_SRC && !PS_SHUFFLE_SAME
 		uvec4 denorm_c_after = uvec4(C);
 		#if (PS_PROCESS_BA & SHUFFLE_READ)
-			C.b = float(((denorm_c_after.r >> 3) & 0x1F) | ((denorm_c_after.g << 2) & 0xE0));
-			C.a = float(((denorm_c_after.g >> 6) & 0x3) | ((denorm_c_after.b >> 1) & 0x7C) | (denorm_c_after.a & 0x80));
+			C.b = float(((denorm_c_after.r >> 3) & 0x1Fu) | ((denorm_c_after.g << 2) & 0xE0u));
+			C.a = float(((denorm_c_after.g >> 6) & 0x3u) | ((denorm_c_after.b >> 1) & 0x7Cu) | (denorm_c_after.a & 0x80u));
 		#else
-			C.r = float(((denorm_c_after.r >> 3) & 0x1F) | ((denorm_c_after.g << 2) & 0xE0));
-			C.g = float(((denorm_c_after.g >> 6) & 0x3) | ((denorm_c_after.b >> 1) & 0x7C) | (denorm_c_after.a & 0x80));
+			C.r = float(((denorm_c_after.r >> 3) & 0x1Fu) | ((denorm_c_after.g << 2) & 0xE0u));
+			C.g = float(((denorm_c_after.g >> 6) & 0x3u) | ((denorm_c_after.b >> 1) & 0x7Cu) | (denorm_c_after.a & 0x80u));
 		#endif
 	#endif
 

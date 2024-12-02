@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "BreakpointDialog.h"
 #include "DebugTools/Breakpoints.h"
@@ -80,6 +80,8 @@ void BreakpointDialog::onRdoButtonToggled()
 
 void BreakpointDialog::accept()
 {
+	std::string error;
+
 	if (m_purpose == PURPOSE::CREATE)
 	{
 		if (m_ui.rdoExecute->isChecked())
@@ -93,10 +95,9 @@ void BreakpointDialog::accept()
 		PostfixExpression expr;
 
 		u64 address;
-		if (!m_cpu->initExpression(m_ui.txtAddress->text().toLocal8Bit().constData(), expr) ||
-			!m_cpu->parseExpression(expr, address))
+		if (!m_cpu->evaluateExpression(m_ui.txtAddress->text().toStdString().c_str(), address, error))
 		{
-			QMessageBox::warning(this, tr("Error"), tr("Invalid address \"%1\"").arg(m_ui.txtAddress->text()));
+			QMessageBox::warning(this, tr("Invalid Address"), QString::fromStdString(error));
 			return;
 		}
 
@@ -109,9 +110,9 @@ void BreakpointDialog::accept()
 			bp->hasCond = true;
 			bp->cond.debug = m_cpu;
 
-			if (!m_cpu->initExpression(m_ui.txtCondition->text().toLocal8Bit().constData(), expr))
+			if (!m_cpu->initExpression(m_ui.txtCondition->text().toStdString().c_str(), expr, error))
 			{
-				QMessageBox::warning(this, tr("Error"), tr("Invalid condition \"%1\"").arg(getExpressionError()));
+				QMessageBox::warning(this, tr("Invalid Condition"), QString::fromStdString(error));
 				return;
 			}
 
@@ -121,21 +122,17 @@ void BreakpointDialog::accept()
 	}
 	if (auto* mc = std::get_if<MemCheck>(&m_bp_mc))
 	{
-		PostfixExpression expr;
-
 		u64 startAddress;
-		if (!m_cpu->initExpression(m_ui.txtAddress->text().toLocal8Bit().constData(), expr) ||
-			!m_cpu->parseExpression(expr, startAddress))
+		if (!m_cpu->evaluateExpression(m_ui.txtAddress->text().toStdString().c_str(), startAddress, error))
 		{
-			QMessageBox::warning(this, tr("Error"), tr("Invalid address \"%1\"").arg(m_ui.txtAddress->text()));
+			QMessageBox::warning(this, tr("Invalid Address"), QString::fromStdString(error));
 			return;
 		}
 
 		u64 size;
-		if (!m_cpu->initExpression(m_ui.txtSize->text().toLocal8Bit(), expr) ||
-			!m_cpu->parseExpression(expr, size) || !size)
+		if (!m_cpu->evaluateExpression(m_ui.txtSize->text().toStdString().c_str(), size, error) || !size)
 		{
-			QMessageBox::warning(this, tr("Error"), tr("Invalid size \"%1\"").arg(m_ui.txtSize->text()));
+			QMessageBox::warning(this, tr("Invalid Size"), QString::fromStdString(error));
 			return;
 		}
 
@@ -147,9 +144,10 @@ void BreakpointDialog::accept()
 			mc->hasCond = true;
 			mc->cond.debug = m_cpu;
 
-			if (!m_cpu->initExpression(m_ui.txtCondition->text().toLocal8Bit().constData(), expr))
+			PostfixExpression expr;
+			if (!m_cpu->initExpression(m_ui.txtCondition->text().toStdString().c_str(), expr, error))
 			{
-				QMessageBox::warning(this, tr("Error"), tr("Invalid condition \"%1\"").arg(getExpressionError()));
+				QMessageBox::warning(this, tr("Invalid Condition"), QString::fromStdString(error));
 				return;
 			}
 

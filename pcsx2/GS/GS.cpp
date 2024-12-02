@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "Config.h"
 #include "Counters.h"
@@ -67,6 +67,12 @@ bool GSIsHardwareRenderer()
 {
 	// Null gets flagged as hw.
 	return (GSCurrentRenderer != GSRendererType::SW);
+}
+
+std::string GetDefaultAdapter()
+{
+	// Will be treated as empty.
+	return "(Default)";
 }
 
 static RenderAPI GetAPIForRenderer(GSRendererType renderer)
@@ -528,7 +534,7 @@ void GSUpdateDisplayWindow()
 {
 	if (!g_gs_device->UpdateWindow())
 	{
-		Host::ReportErrorAsync("Error", "Failed to change window after update. The log may contain more information.");
+		Host::ReportErrorAsync("Error", TRANSLATE_SV("GS", "Failed to change window after update. The log may contain more information."));
 		return;
 	}
 
@@ -644,14 +650,37 @@ void GSgetStats(SmallStringBase& info)
 	{
 		const double fps = GetVerticalFrequency();
 		const double fillrate = pm.Get(GSPerfMon::Fillrate);
-		info.format("{} SW | {} S | {} P | {} D | {:.2f} U | {:.2f} D | {:.2f} mpps",
+		double pps = fps * fillrate;
+		char prefix = '\0';
+		
+		if (pps >= 170000000)
+		{
+			pps /= 1073741824; // Gpps
+			prefix = 'G';
+		}
+		else if (pps >= 35000000)
+		{
+			pps /= 1048576; // Mpps
+			prefix = 'M';
+		}
+		else if (pps >= 1024)
+		{
+			pps /= 1024;
+			prefix = 'K';
+		}
+		else
+		{
+			prefix = '\0';
+		}
+
+		info.format("{} SW | {} SP | {} P | {} D | {:.2f} S | {:.2f} U | {:.2f} {}pps",
 			api_name,
 			(int)pm.Get(GSPerfMon::SyncPoint),
 			(int)pm.Get(GSPerfMon::Prim),
 			(int)pm.Get(GSPerfMon::Draw),
 			pm.Get(GSPerfMon::Swizzle) / 1024,
 			pm.Get(GSPerfMon::Unswizzle) / 1024,
-			fps * fillrate / (1024 * 1024));
+			pps,prefix);
 	}
 	else if (GSCurrentRenderer == GSRendererType::Null)
 	{
@@ -1043,17 +1072,15 @@ static void HotkeyAdjustUpscaleMultiplier(s32 delta)
 
 static void HotkeyToggleOSD()
 {
-	GSConfig.OsdShowMessages ^= EmuConfig.GS.OsdShowMessages;
-	GSConfig.OsdShowSpeed ^= EmuConfig.GS.OsdShowSpeed;
-	GSConfig.OsdShowFPS ^= EmuConfig.GS.OsdShowFPS;
-	GSConfig.OsdShowCPU ^= EmuConfig.GS.OsdShowCPU;
-	GSConfig.OsdShowGPU ^= EmuConfig.GS.OsdShowGPU;
-	GSConfig.OsdShowResolution ^= EmuConfig.GS.OsdShowResolution;
-	GSConfig.OsdShowGSStats ^= EmuConfig.GS.OsdShowGSStats;
-	GSConfig.OsdShowIndicators ^= EmuConfig.GS.OsdShowIndicators;
 	GSConfig.OsdShowSettings ^= EmuConfig.GS.OsdShowSettings;
 	GSConfig.OsdShowInputs ^= EmuConfig.GS.OsdShowInputs;
-	GSConfig.OsdShowFrameTimes ^= EmuConfig.GS.OsdShowFrameTimes;
+	GSConfig.OsdShowInputRec ^= EmuConfig.GS.OsdShowInputRec;
+	GSConfig.OsdShowVideoCapture ^= EmuConfig.GS.OsdShowVideoCapture;
+
+	GSConfig.OsdMessagesPos =
+		GSConfig.OsdMessagesPos == OsdOverlayPos::None ? EmuConfig.GS.OsdMessagesPos : OsdOverlayPos::None;
+	GSConfig.OsdPerformancePos =
+		GSConfig.OsdPerformancePos == OsdOverlayPos::None ? EmuConfig.GS.OsdPerformancePos : OsdOverlayPos::None;
 }
 
 BEGIN_HOTKEY_LIST(g_gs_hotkeys){"Screenshot", TRANSLATE_NOOP("Hotkeys", "Graphics"),
@@ -1155,16 +1182,16 @@ BEGIN_HOTKEY_LIST(g_gs_hotkeys){"Screenshot", TRANSLATE_NOOP("Hotkeys", "Graphic
 				return;
 
 			static constexpr std::array<const char*, static_cast<int>(GSInterlaceMode::Count)> option_names = {{
-				"Automatic",
-				"Off",
-				"Weave (Top Field First)",
-				"Weave (Bottom Field First)",
-				"Bob (Top Field First)",
-				"Bob (Bottom Field First)",
-				"Blend (Top Field First)",
-				"Blend (Bottom Field First)",
-				"Adaptive (Top Field First)",
-				"Adaptive (Bottom Field First)",
+				TRANSLATE_NOOP("Hotkeys", "Automatic"),
+				TRANSLATE_NOOP("Hotkeys", "Off"),
+				TRANSLATE_NOOP("Hotkeys", "Weave (Top Field First)"),
+				TRANSLATE_NOOP("Hotkeys", "Weave (Bottom Field First)"),
+				TRANSLATE_NOOP("Hotkeys", "Bob (Top Field First)"),
+				TRANSLATE_NOOP("Hotkeys", "Bob (Bottom Field First)"),
+				TRANSLATE_NOOP("Hotkeys", "Blend (Top Field First)"),
+				TRANSLATE_NOOP("Hotkeys", "Blend (Bottom Field First)"),
+				TRANSLATE_NOOP("Hotkeys", "Adaptive (Top Field First)"),
+				TRANSLATE_NOOP("Hotkeys", "Adaptive (Bottom Field First)"),
 			}};
 
 			const GSInterlaceMode new_mode = static_cast<GSInterlaceMode>(

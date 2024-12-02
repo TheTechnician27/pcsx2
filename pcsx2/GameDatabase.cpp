@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "GameDatabase.h"
 #include "GS/GS.h"
@@ -640,7 +640,7 @@ bool GameDatabaseSchema::GameEntry::configMatchesHWFix(const Pcsx2Config::GSOpti
 			return (config.UpscaleMultiplier <= 1.0f || config.UserHacks_RoundSprite == value);
 
 		case GSHWFixId::NativeScaling:
-			return (static_cast<int>(config.UserHacks_NativeScaling) == value);
+			return (config.UpscaleMultiplier <= 1.0f || static_cast<int>(config.UserHacks_NativeScaling) == value);
 
 		case GSHWFixId::TexturePreloading:
 			return (static_cast<int>(config.TexturePreloading) <= value);

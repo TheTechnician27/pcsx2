@@ -28,6 +28,9 @@
     <Filter Include="Translations">
       <UniqueIdentifier>{ad04f939-64a0-4039-97aa-a38b8aa46855}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Debugger\SymbolTree">
+      <UniqueIdentifier>{a622b871-62ae-4b70-b9b2-6ee30ce7fa7a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\pcsx2\windows\PCSX2.rc" />
@@ -254,11 +257,20 @@
     <ClCompile Include="Tools\InputRecording\InputRecordingViewer.cpp">
       <Filter>Tools\Input Recording</Filter>
     </ClCompile>
+    <ClCompile Include="Settings\DebugAnalysisSettingsWidget.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IntDir)Settings\moc_DebugAnalysisSettingsWidget.cpp">
+      <Filter>moc</Filter>
+    </ClCompile>
     <ClCompile Include="Settings\DebugSettingsWidget.cpp">
       <Filter>Settings</Filter>
     </ClCompile>
     <ClCompile Include="$(IntDir)Settings\moc_DebugSettingsWidget.cpp">
       <Filter>moc</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\AnalysisOptionsDialog.cpp">
+      <Filter>Debugger</Filter>
     </ClCompile>
     <ClCompile Include="Debugger\DebuggerWindow.cpp">
       <Filter>Debugger</Filter>
@@ -292,6 +304,9 @@
     </ClCompile>
     <ClCompile Include="Debugger\Models\SavedAddressesModel.cpp">
       <Filter>Debugger\Models</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IntDir)Debugger\moc_AnalysisOptionsDialog.cpp">
+      <Filter>moc</Filter>
     </ClCompile>
     <ClCompile Include="$(IntDir)Debugger\moc_CpuWidget.cpp">
       <Filter>moc</Filter>
@@ -355,6 +370,27 @@
     <ClCompile Include="Debugger\DebuggerSettingsManager.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\SymbolTree\NewSymbolDialogs.cpp">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\SymbolTree\SymbolTreeDelegates.cpp">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\SymbolTree\SymbolTreeLocation.cpp">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\SymbolTree\SymbolTreeModel.cpp">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\SymbolTree\SymbolTreeNode.cpp">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\SymbolTree\SymbolTreeWidgets.cpp">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\SymbolTree\TypeString.cpp">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClCompile>
     <ClCompile Include="VCRuntimeChecker.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -377,6 +413,27 @@
     </ClInclude>
     <ClInclude Include="Debugger\DebuggerSettingsManager.h">
       <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\SymbolTree\NewSymbolDialogs.h">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\SymbolTree\SymbolTreeDelegates.h">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\SymbolTree\SymbolTreeLocation.h">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\SymbolTree\SymbolTreeModel.h">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\SymbolTree\SymbolTreeNode.h">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\SymbolTree\SymbolTreeWidgets.h">
+      <Filter>Debugger\SymbolTree</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\SymbolTree\TypeString.h">
+      <Filter>Debugger\SymbolTree</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -475,8 +532,14 @@
       <Filter>Settings</Filter>
     </QtMoc>
     <QtMoc Include="Tools\InputRecording\InputRecordingViewer.h" />
+    <QtMoc Include="Settings\DebugAnalysisSettingsWidget.h">
+      <Filter>Settings</Filter>
+    </QtMoc>
     <QtMoc Include="Settings\DebugSettingsWidget.h">
       <Filter>Settings</Filter>
+    </QtMoc>
+    <QtMoc Include="Debugger\AnalysisOptionsDialog.h">
+      <Filter>Debugger</Filter>
     </QtMoc>
     <QtMoc Include="Debugger\DebuggerWindow.h">
       <Filter>Debugger</Filter>
@@ -620,8 +683,14 @@
     <QtUi Include="Settings\USBDeviceWidget.ui">
       <Filter>Settings</Filter>
     </QtUi>
+    <QtUi Include="Settings\DebugAnalysisSettingsWidget.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
     <QtUi Include="Settings\DebugSettingsWidget.ui">
       <Filter>Settings</Filter>
+    </QtUi>
+    <QtUi Include="Debugger\AnalysisOptionsDialog.ui">
+      <Filter>Debugger</Filter>
     </QtUi>
     <QtUi Include="Debugger\DebuggerWindow.ui">
       <Filter>Debugger</Filter>
@@ -657,13 +726,34 @@
       <Filter>Settings</Filter>
     </QtUi>
     <QtUi Include="SetupWizardDialog.ui" />
+    <QtUi Include="Settings\USBBindingWidget_Buzz.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
+    <QtUi Include="Settings\USBBindingWidget_DenshaCon.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
     <QtUi Include="Settings\USBBindingWidget_DrivingForce.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
+    <QtUi Include="Settings\USBBindingWidget_Gametrak.ui">
       <Filter>Settings</Filter>
     </QtUi>
     <QtUi Include="Settings\USBBindingWidget_GTForce.ui">
       <Filter>Settings</Filter>
     </QtUi>
     <QtUi Include="Settings\USBBindingWidget_GunCon2.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
+    <QtUi Include="Settings\USBBindingWidget_RealPlay.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
+    <QtUi Include="Settings\USBBindingWidget_RyojouhenCon.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
+    <QtUi Include="Settings\USBBindingWidget_ShinkansenCon.ui">
+      <Filter>Settings</Filter>
+    </QtUi>
+    <QtUi Include="Settings\USBBindingWidget_TranceVibrator.ui">
       <Filter>Settings</Filter>
     </QtUi>
     <QtUi Include="Settings\AudioExpansionSettingsDialog.ui">
@@ -682,6 +772,12 @@
     </None>
     <None Include="Settings\ControllerMappingSettingsDialog.ui">
       <Filter>Settings</Filter>
+    </None>
+    <None Include="Debugger\SymbolTree\NewSymbolDialog.ui">
+      <Filter>Debugger\SymbolTree</Filter>
+    </None>
+    <None Include="Debugger\SymbolTree\SymbolTreeWidget.ui">
+      <Filter>Debugger\SymbolTree</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

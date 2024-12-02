@@ -56,6 +56,8 @@
       <AdditionalIncludeDirectories Condition="'$(Platform)'=='x64'">%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\xbyak</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Platform)'=='x64'">%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\zydis\include;$(SolutionDir)3rdparty\zydis\dependencies\zycore\include</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Platform)'=='ARM64'">%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\vixl\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\demangler\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\ccc\src</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>PrecompiledHeader.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
@@ -115,10 +117,10 @@
     <ClCompile Include="arm64\AsmHelpers.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="arm64\newVif_Dynarec.cpp">
+    <ClCompile Include="arm64\Vif_Dynarec.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="arm64\newVif_UnpackNEON.cpp">
+    <ClCompile Include="arm64\Vif_UnpackNEON.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="arm64\RecStubs.cpp">
@@ -152,7 +154,8 @@
     <ClCompile Include="DebugTools\MipsAssembler.cpp" />
     <ClCompile Include="DebugTools\MipsAssemblerTables.cpp" />
     <ClCompile Include="DebugTools\MipsStackWalk.cpp" />
-    <ClCompile Include="DebugTools\SymbolMap.cpp" />
+    <ClCompile Include="DebugTools\SymbolGuardian.cpp" />
+    <ClCompile Include="DebugTools\SymbolImporter.cpp" />
     <ClCompile Include="DEV9\AdapterUtils.cpp" />
     <ClCompile Include="DEV9\ATA\Commands\ATA_Command.cpp" />
     <ClCompile Include="DEV9\ATA\Commands\ATA_CmdDMA.cpp" />
@@ -291,6 +294,8 @@
     <ClCompile Include="SIO\Pad\Pad.cpp" />
     <ClCompile Include="SIO\Pad\PadDualshock2.cpp" />
     <ClCompile Include="SIO\Pad\PadGuitar.cpp" />
+    <ClCompile Include="SIO\Pad\PadJogcon.cpp" />
+    <ClCompile Include="SIO\Pad\PadNegcon.cpp" />
     <ClCompile Include="SIO\Pad\PadNotConnected.cpp" />
     <ClCompile Include="SIO\Pad\PadPopn.cpp" />
     <ClCompile Include="SIO\Sio.cpp" />
@@ -388,14 +393,18 @@
     <ClCompile Include="USB\usb-lightgun\guncon2.cpp" />
     <ClCompile Include="USB\usb-mic\audiodev-cubeb.cpp" />
     <ClCompile Include="USB\usb-mic\usb-headset.cpp" />
-    <ClCompile Include="USB\usb-mic\usb-mic-logitech.cpp" />
-    <ClCompile Include="USB\usb-mic\usb-mic-singstar.cpp" />
+    <ClCompile Include="USB\usb-mic\usb-mic.cpp" />
     <ClCompile Include="USB\usb-msd\usb-msd.cpp" />
     <ClCompile Include="USB\usb-pad\lg\lg_ff.cpp" />
+    <ClCompile Include="USB\usb-pad\usb-buzz.cpp" />
+    <ClCompile Include="USB\usb-pad\usb-gametrak.cpp" />
+    <ClCompile Include="USB\usb-pad\usb-realplay.cpp" />
     <ClCompile Include="USB\usb-pad\usb-pad-ff.cpp" />
     <ClCompile Include="USB\usb-pad\usb-pad-sdl-ff.cpp" />
     <ClCompile Include="USB\usb-pad\usb-pad.cpp" />
     <ClCompile Include="USB\usb-pad\usb-seamic.cpp" />
+    <ClCompile Include="USB\usb-pad\usb-train.cpp" />
+    <ClCompile Include="USB\usb-pad\usb-trance-vibrator.cpp" />
     <ClCompile Include="USB\usb-pad\usb-turntable.cpp" />
     <ClCompile Include="USB\usb-printer\usb-printer.cpp" />
     <ClCompile Include="USB\USB.cpp" />
@@ -410,6 +419,7 @@
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="ps2\BiosTools.cpp" />
+    <ClCompile Include="BuildVersion.cpp" />
     <ClCompile Include="Counters.cpp" />
     <ClCompile Include="FiFo.cpp" />
     <ClCompile Include="Hw.cpp" />
@@ -447,10 +457,10 @@
     <ClCompile Include="Vif_Codes.cpp" />
     <ClCompile Include="Vif_Transfer.cpp" />
     <ClCompile Include="Vif_Unpack.cpp" />
-    <ClCompile Include="x86\newVif_Dynarec.cpp">
+    <ClCompile Include="x86\Vif_Dynarec.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="x86\newVif_UnpackSSE.cpp">
+    <ClCompile Include="x86\Vif_UnpackSSE.cpp">
       <ExcludedFromBuild Condition="'$(Platform)'!='x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SPR.cpp" />
@@ -569,7 +579,7 @@
     <ClInclude Include="arm64\AsmHelpers.h">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="arm64\newVif_UnpackNEON.h">
+    <ClInclude Include="arm64\Vif_UnpackNEON.h">
       <ExcludedFromBuild Condition="'$(Platform)'!='ARM64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="CDVD\BlockdumpFileReader.h" />
@@ -591,7 +601,8 @@
     <ClInclude Include="DebugTools\MipsAssembler.h" />
     <ClInclude Include="DebugTools\MipsAssemblerTables.h" />
     <ClInclude Include="DebugTools\MipsStackWalk.h" />
-    <ClInclude Include="DebugTools\SymbolMap.h" />
+    <ClInclude Include="DebugTools\SymbolGuardian.h" />
+    <ClInclude Include="DebugTools\SymbolImporter.h" />
     <ClInclude Include="DEV9\AdapterUtils.h" />
     <ClInclude Include="DEV9\ATA\ATA.h" />
     <ClInclude Include="DEV9\ATA\HddCreate.h" />
@@ -729,6 +740,8 @@
     <ClInclude Include="SIO\Pad\Pad.h" />
     <ClInclude Include="SIO\Pad\PadDualshock2.h" />
     <ClInclude Include="SIO\Pad\PadGuitar.h" />
+    <ClInclude Include="SIO\Pad\PadJogcon.h" />
+    <ClInclude Include="SIO\Pad\PadNegcon.h" />
     <ClInclude Include="SIO\Pad\PadNotConnected.h" />
     <ClInclude Include="SIO\Pad\PadPopn.h" />
     <ClInclude Include="SIO\Pad\PadTypes.h" />
@@ -836,11 +849,16 @@
     <ClInclude Include="USB\usb-mic\audiodev-noop.h" />
     <ClInclude Include="USB\usb-mic\audiodev.h" />
     <ClInclude Include="USB\usb-mic\usb-headset.h" />
-    <ClInclude Include="USB\usb-mic\usb-mic-singstar.h" />
+    <ClInclude Include="USB\usb-mic\usb-mic.h" />
     <ClInclude Include="USB\usb-msd\usb-msd.h" />
     <ClInclude Include="USB\usb-pad\lg\lg_ff.h" />
+    <ClInclude Include="USB\usb-pad\usb-buzz.h" />
+    <ClInclude Include="USB\usb-pad\usb-gametrak.h" />
+    <ClInclude Include="USB\usb-pad\usb-realplay.h" />
     <ClInclude Include="USB\usb-pad\usb-pad-sdl-ff.h" />
     <ClInclude Include="USB\usb-pad\usb-pad.h" />
+    <ClInclude Include="USB\usb-pad\usb-train.h" />
+    <ClInclude Include="USB\usb-pad\usb-trance-vibrator.h" />
     <ClInclude Include="USB\usb-pad\usb-turntable.h" />
     <ClInclude Include="USB\usb-printer\usb-printer.h" />
     <ClInclude Include="USB\USB.h" />
@@ -848,6 +866,7 @@
     <ClInclude Include="Elfheader.h" />
     <ClInclude Include="CDVD\IsoFileFormats.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="BuildVersion.h" />
     <ClInclude Include="Common.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="SaveState.h" />
@@ -879,7 +898,7 @@
     <ClInclude Include="Vif_Dma.h" />
     <ClInclude Include="Vif_Unpack.h" />
     <ClInclude Include="x86\newVif.h" />
-    <ClInclude Include="x86\newVif_UnpackSSE.h" />
+    <ClInclude Include="x86\Vif_UnpackSSE.h" />
     <ClInclude Include="SPR.h" />
     <ClInclude Include="Gif.h" />
     <ClInclude Include="R5900.h" />
@@ -992,6 +1011,12 @@
     </ProjectReference>
     <ProjectReference Include="..\3rdparty\vixl\vixl.vcxproj" Condition="'$(Platform)'=='ARM64'">
       <Project>{8906836e-f06e-46e8-b11a-74e5e8c7b8fb}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\3rdparty\demangler\demangler.vcxproj">
+      <Project>{d31a6dd1-99ca-41d8-a230-1fae913c8989}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\3rdparty\ccc\ccc.vcxproj">
+      <Project>{2589f8ce-ea77-4b73-911e-64074569795b}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

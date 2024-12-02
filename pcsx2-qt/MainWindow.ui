@@ -196,7 +196,6 @@
      <addaction name="actionInputRecStop"/>
      <addaction name="separator"/>
      <addaction name="actionInputRecOpenViewer"/>
-     <addaction name="actionInputRecOpenSettings"/>
      <addaction name="separator"/>
      <addaction name="actionInputRecConsoleLogs"/>
      <addaction name="actionInputRecControllerLogs"/>
@@ -210,7 +209,7 @@
     <addaction name="separator"/>
     <addaction name="actionToggleSoftwareRendering"/>
     <addaction name="menuInputRecording"/>
-    <addaction name="actionToolsVideoCapture"/>
+    <addaction name="actionVideoCapture"/>
     <addaction name="separator"/>
     <addaction name="actionEnableSystemConsole"/>
     <addaction name="actionEnableDebugConsole"/>
@@ -260,7 +259,9 @@
    <addaction name="actionToolbarReset"/>
    <addaction name="actionToolbarPause"/>
    <addaction name="actionToolbarChangeDisc"/>
+   <addaction name="separator"/>
    <addaction name="actionToolbarScreenshot"/>
+   <addaction name="actionVideoCapture"/>
    <addaction name="separator"/>
    <addaction name="actionToolbarLoadState"/>
    <addaction name="actionToolbarSaveState"/>
@@ -979,14 +980,6 @@
     <string extracomment="This section refers to the Input Recording submenu.">Stop</string>
    </property>
   </action>
-  <action name="actionInputRecOpenSettings">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="text">
-    <string extracomment="This section refers to the Input Recording submenu.">Settings</string>
-   </property>
-  </action>
   <action name="actionRecording_Console_Logs">
    <property name="text">
     <string>Input Recording Logs</string>
@@ -1080,12 +1073,16 @@
     <string>Recording Viewer</string>
    </property>
   </action>
-  <action name="actionToolsVideoCapture">
+  <action name="actionVideoCapture">
    <property name="checkable">
     <bool>true</bool>
    </property>
    <property name="text">
     <string>Video Capture</string>
+   </property>
+   <property name="icon">
+    <iconset theme="camera-video">
+     <normaloff>.</normaloff>.</iconset>
    </property>
   </action>
   <action name="actionEditCheats">

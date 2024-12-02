@@ -1,14 +1,12 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "InputRecordingFile.h"
 
+#include "BuildVersion.h"
 #include "Utilities/InputRecordingLogger.h"
 
 #include "common/FileSystem.h"
-#include "DebugTools/Debug.h"
-#include "MemoryTypes.h"
-#include "svnrev.h"
 
 #include <fmt/format.h>
 
@@ -22,7 +20,7 @@ void InputRecordingFile::InputRecordingFileHeader::init() noexcept
 
 void InputRecordingFile::setEmulatorVersion()
 {
-	StringUtil::Strlcpy(m_header.m_emulatorVersion, "PCSX2-" GIT_REV, sizeof(m_header.m_emulatorVersion));
+	snprintf(m_header.m_emulatorVersion, sizeof(m_header.m_emulatorVersion), "PCSX2-%s", BuildVersion::GitRev);
 }
 
 void InputRecordingFile::setAuthor(const std::string& _author)

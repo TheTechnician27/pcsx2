@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "Achievements.h"
 #include "GS.h"
@@ -104,6 +104,11 @@ static bool CanPause()
 	s_last_pause_time = time;
 
 	return true;
+}
+
+static bool UseSavestateSelector()
+{
+	return EmuConfig.UseSavestateSelector;
 }
 
 BEGIN_HOTKEY_LIST(g_common_hotkeys)
@@ -222,12 +227,12 @@ DEFINE_HOTKEY("InputRecToggleMode", TRANSLATE_NOOP("Hotkeys", "System"),
 DEFINE_HOTKEY("PreviousSaveStateSlot", TRANSLATE_NOOP("Hotkeys", "Save States"),
 	TRANSLATE_NOOP("Hotkeys", "Select Previous Save Slot"), [](s32 pressed) {
 		if (!pressed && VMManager::HasValidVM())
-			SaveStateSelectorUI::SelectPreviousSlot(true);
+			SaveStateSelectorUI::SelectPreviousSlot(UseSavestateSelector());
 	})
 DEFINE_HOTKEY("NextSaveStateSlot", TRANSLATE_NOOP("Hotkeys", "Save States"),
 	TRANSLATE_NOOP("Hotkeys", "Select Next Save Slot"), [](s32 pressed) {
 		if (!pressed && VMManager::HasValidVM())
-			SaveStateSelectorUI::SelectNextSlot(true);
+			SaveStateSelectorUI::SelectNextSlot(UseSavestateSelector());
 	})
 DEFINE_HOTKEY("SaveStateToSlot", TRANSLATE_NOOP("Hotkeys", "Save States"),
 	TRANSLATE_NOOP("Hotkeys", "Save State To Selected Slot"), [](s32 pressed) {
@@ -245,6 +250,14 @@ DEFINE_HOTKEY("SaveStateAndSelectNextSlot", TRANSLATE_NOOP("Hotkeys", "Save Stat
 		{
 			SaveStateSelectorUI::SaveCurrentSlot();
 			SaveStateSelectorUI::SelectNextSlot(false);
+		}
+	})
+DEFINE_HOTKEY("SelectNextSlotAndSaveState", TRANSLATE_NOOP("Hotkeys", "Save States"),
+	TRANSLATE_NOOP("Hotkeys", "Select Next Slot and Save State"), [](s32 pressed) {
+		if (!pressed && VMManager::HasValidVM())
+		{
+			SaveStateSelectorUI::SelectNextSlot(false);
+			SaveStateSelectorUI::SaveCurrentSlot();
 		}
 	})
 

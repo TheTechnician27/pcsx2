@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "DEV9/ATA/ATA.h"
 #include "DEV9/DEV9.h"
@@ -35,6 +35,7 @@ void ATA::HDD_Smart()
 			SMART_SetAutoSaveAttribute();
 			return;
 		case 0xD3: //SMART_ATTR_SAVE
+			SMART_SaveAttribute();
 			return;
 		case 0xDA: //SMART_STATUS (is fault in disk?)
 			SMART_ReturnStatus();
@@ -77,6 +78,13 @@ void ATA::SMART_SetAutoSaveAttribute()
 			CmdNoDataAbort();
 			return;
 	}
+	PostCmdNoData();
+}
+
+void ATA::SMART_SaveAttribute()
+{
+	PreCmd();
+	// Stub
 	PostCmdNoData();
 }
 

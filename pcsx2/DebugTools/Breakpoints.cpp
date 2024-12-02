@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "Breakpoints.h"
-#include "SymbolMap.h"
+#include "SymbolGuardian.h"
 #include "MIPSAnalyst.h"
 #include <cstdio>
 #include "R5900.h"

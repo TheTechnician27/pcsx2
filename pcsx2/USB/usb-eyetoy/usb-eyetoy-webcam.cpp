@@ -1,11 +1,13 @@
-// SPDX-FileCopyrightText: 2002-2023 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "Host.h"
 #include "videodev.h"
 #include "usb-eyetoy-webcam.h"
 #include "ov519.h"
 #include "USB/qemu-usb/desc.h"
+#include "USB/usb-mic/audio.h"
+#include "USB/usb-mic/usb-mic.h"
 #include "USB/USB.h"
 #include "StateWrapper.h"
 
@@ -23,16 +25,15 @@ namespace usb_eyetoy
 		u32 subtype;
 
 		std::unique_ptr<VideoDevice> videodev;
-		//	struct freeze {
-		uint8_t regs[0xFF]; //OV519
-		uint8_t i2c_regs[0xFF]; //OV764x
+		USBDevice* mic;
+		u8 regs[0xFF]; //OV519
+		u8 i2c_regs[0xFF]; //OV764x
 
 		int hw_camera_running;
 		int frame_step;
 		std::unique_ptr<unsigned char[]> mpeg_frame_data;
 		unsigned int mpeg_frame_size;
 		unsigned int mpeg_frame_offset;
-		//	} f;
 	} EYETOYState;
 
 	static const USBDescStrings desc_strings = {
@@ -80,10 +81,10 @@ namespace usb_eyetoy
 		}
 		else if (s->hw_camera_running && s->subtype == TYPE_OV511P)
 		{
-			const int width = 320;
-			const int height = 240;
+			constexpr int width = 320;
+			constexpr int height = 240;
 			const FrameFormat format = format_yuv400;
-			const int mirror = 0;
+			constexpr int mirror = 0;
 			Console.WriteLn(
 				"EyeToy : eyetoy_open(); hw=%d, w=%d, h=%d, fmt=%d, mirr=%d", s->hw_camera_running, width, height, format, mirror);
 			if (s->videodev->Open(width, height, format, mirror) != 0)
@@ -103,11 +104,14 @@ namespace usb_eyetoy
 
 	static void eyetoy_handle_reset(USBDevice* dev)
 	{
-		reset_controller(USB_CONTAINER_OF(dev, EYETOYState, dev));
-		reset_sensor(USB_CONTAINER_OF(dev, EYETOYState, dev));
+		EYETOYState* s = USB_CONTAINER_OF(dev, EYETOYState, dev);
+		reset_controller(s);
+		reset_sensor(s);
+		if (s->mic)
+			s->mic->klass.handle_reset(s->mic);
 	}
 
-	static void webcam_handle_control_eyetoy(USBDevice* dev, USBPacket* p, int request, int value, int index, int length, uint8_t* data)
+	static void webcam_handle_control_eyetoy(USBDevice* dev, USBPacket* p, int request, int value, int index, int length, u8* data)
 	{
 		EYETOYState* s = USB_CONTAINER_OF(dev, EYETOYState, dev);
 		int ret = 0;
@@ -168,9 +172,9 @@ namespace usb_eyetoy
 					case R518_I2C_CTL:
 						if (data[0] == 1) // Commit I2C write
 						{
-							//uint8_t reg = s->regs[s->regs[R51x_I2C_W_SID]];
-							uint8_t reg = s->regs[R51x_I2C_SADDR_3];
-							uint8_t val = s->regs[R51x_I2C_DATA];
+							//u8 reg = s->regs[s->regs[R51x_I2C_W_SID]];
+							const u8 reg = s->regs[R51x_I2C_SADDR_3];
+							const u8 val = s->regs[R51x_I2C_DATA];
 							if ((reg == 0x12) && (val & 0x80))
 							{
 								s->i2c_regs[0x12] = val & ~0x80; //or skip?
@@ -190,7 +194,7 @@ namespace usb_eyetoy
 						else if (s->regs[R518_I2C_CTL] == 0x03 && data[0] == 0x05)
 						{
 							//s->regs[s->regs[R51x_I2C_R_SID]] but seems to default to 0x43 (R51x_I2C_SADDR_2)
-							uint8_t i2c_reg = s->regs[R51x_I2C_SADDR_2];
+							const u8 i2c_reg = s->regs[R51x_I2C_SADDR_2];
 							s->regs[R51x_I2C_DATA] = 0;
 
 							if (i2c_reg < sizeof(s->i2c_regs))
@@ -214,7 +218,7 @@ namespace usb_eyetoy
 		}
 	}
 
-	static void webcam_handle_control_ov511p(USBDevice* dev, USBPacket* p, int request, int value, int index, int length, uint8_t* data)
+	static void webcam_handle_control_ov511p(USBDevice* dev, USBPacket* p, int request, int value, int index, int length, u8* data)
 	{
 		EYETOYState* s = USB_CONTAINER_OF(dev, EYETOYState, dev);
 		int ret = 0;
@@ -238,8 +242,8 @@ namespace usb_eyetoy
 					case R511_I2C_CTL:
 						if (data[0] == 1)
 						{
-							uint8_t reg = s->regs[R51x_I2C_SADDR_3];
-							uint8_t val = s->regs[R51x_I2C_DATA];
+							u8 reg = s->regs[R51x_I2C_SADDR_3];
+							const u8 val = s->regs[R51x_I2C_DATA];
 							if (reg < sizeof(s->i2c_regs))
 							{
 								s->i2c_regs[reg] = val;
@@ -247,7 +251,7 @@ namespace usb_eyetoy
 						}
 						else if (s->regs[R511_I2C_CTL] == 0x03 && data[0] == 0x05)
 						{
-							uint8_t i2c_reg = s->regs[R51x_I2C_SADDR_2];
+							const u8 i2c_reg = s->regs[R51x_I2C_SADDR_2];
 							s->regs[R51x_I2C_DATA] = 0;
 
 							if (i2c_reg < sizeof(s->i2c_regs))
@@ -273,8 +277,8 @@ namespace usb_eyetoy
 	static void webcam_handle_data_eyetoy(USBDevice* dev, USBPacket* p)
 	{
 		EYETOYState* s = USB_CONTAINER_OF(dev, EYETOYState, dev);
-		static const unsigned int max_ep_size = 896;
-		uint8_t devep = p->ep->nr;
+		static constexpr unsigned int max_ep_size = 896;
+		const u8 devep = p->ep->nr;
 
 		if (!s->hw_camera_running)
 		{
@@ -328,10 +332,8 @@ namespace usb_eyetoy
 				}
 				else if (devep == 2)
 				{
-					// get audio
-					//Console.Warning("get audio %d\n", len);
-					memset(data, 0, std::min(p->buffer_size, max_ep_size));
-					usb_packet_copy(p, data, std::min(p->buffer_size, max_ep_size));
+					if (s->mic)
+						s->mic->klass.handle_data(s->mic, p);
 				}
 				break;
 			case USB_TOKEN_OUT:
@@ -344,7 +346,7 @@ namespace usb_eyetoy
 	static void webcam_handle_data_ov511p(USBDevice* dev, USBPacket* p)
 	{
 		EYETOYState* s = USB_CONTAINER_OF(dev, EYETOYState, dev);
-		uint8_t devep = p->ep->nr;
+		const u8 devep = p->ep->nr;
 
 		if (!s->hw_camera_running)
 		{
@@ -367,14 +369,14 @@ namespace usb_eyetoy
 							break;
 						}
 
-						static const unsigned int max_ep_size = 960; // 961
+						static const unsigned int max_ep_size = 961;
 						u8 data[max_ep_size];
 						pxAssert(p->buffer_size <= max_ep_size);
 
 						static constexpr const u8 header[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x28}; // 28 <> 29
 						std::memcpy(data, header, sizeof(header));
 
-						const u32 data_pk = std::min(p->buffer_size - static_cast<u32>(sizeof(header)), s->mpeg_frame_size);
+						const u32 data_pk = std::min(p->buffer_size - 1 - static_cast<u32>(sizeof(header)), s->mpeg_frame_size);
 						std::memcpy(data + sizeof(header), s->mpeg_frame_data.get(), data_pk);
 						usb_packet_copy(p, data, sizeof(header) + data_pk);
 
@@ -383,7 +385,7 @@ namespace usb_eyetoy
 					}
 					else if (s->mpeg_frame_offset < s->mpeg_frame_size)
 					{
-						const u32 data_pk = std::min(s->mpeg_frame_size - s->mpeg_frame_offset, p->buffer_size);
+						const u32 data_pk = std::min(s->mpeg_frame_size - s->mpeg_frame_offset, p->buffer_size - 1);
 						usb_packet_copy(p, s->mpeg_frame_data.get() + s->mpeg_frame_offset, data_pk);
 
 						s->mpeg_frame_offset += data_pk;
@@ -408,11 +410,18 @@ namespace usb_eyetoy
 	{
 		EYETOYState* s = USB_CONTAINER_OF(dev, EYETOYState, dev);
 		close_camera(s);
+		if (s->mic)
+			s->mic->klass.unrealize(s->mic);
 		delete s;
 	}
 
 	USBDevice* EyeToyWebCamDevice::CreateDevice(SettingsInterface& si, u32 port, u32 subtype) const
 	{
+		const usb_mic::MicrophoneDevice* mic_proxy =
+			static_cast<usb_mic::MicrophoneDevice*>(RegisterDevice::instance().Device(DEVTYPE_MICROPHONE));
+		if (!mic_proxy)
+			return nullptr;
+
 		std::unique_ptr<VideoDevice> videodev(VideoDevice::CreateInstance());
 		if (!videodev)
 		{
@@ -435,6 +444,8 @@ namespace usb_eyetoy
 				goto fail;
 			s->dev.klass.handle_control = webcam_handle_control_eyetoy;
 			s->dev.klass.handle_data = webcam_handle_data_eyetoy;
+
+			s->mic = mic_proxy->CreateDevice(si, port, 0, false, 16000, TypeName());
 		}
 		else if (subtype == TYPE_OV511P)
 		{
@@ -503,17 +514,42 @@ namespace usb_eyetoy
 	std::span<const char*> EyeToyWebCamDevice::SubTypes() const
 	{
 		static const char* subtypes[] = {
-			TRANSLATE_NOOP("USB", "Sony EyeToy"), TRANSLATE_NOOP("USB", "Konami Capture Eye")};
+			TRANSLATE_NOOP("USB", "Sony EyeToy"),
+			TRANSLATE_NOOP("USB", "Konami Capture Eye")
+		};
 		return subtypes;
 	}
 
 	std::span<const SettingInfo> EyeToyWebCamDevice::Settings(u32 subtype) const
 	{
-		static constexpr const SettingInfo info[] = {
-			{SettingInfo::Type::StringList, "device_name", TRANSLATE_NOOP("USB", "Device Name"),
-				TRANSLATE_NOOP("USB", "Selects the device to capture images from."), "", nullptr, nullptr, nullptr,
-				nullptr, nullptr, &VideoDevice::GetDeviceList},
-		};
-		return info;
+		switch (subtype)
+		{
+			case TYPE_EYETOY:
+			{
+				static constexpr const SettingInfo info[] = {
+					{SettingInfo::Type::StringList, "device_name", TRANSLATE_NOOP("USB", "Video Device"),
+						TRANSLATE_NOOP("USB", "Selects the device to capture images from."), "", nullptr, nullptr, nullptr,
+						nullptr, nullptr, &VideoDevice::GetDeviceList},
+					{SettingInfo::Type::StringList, "input_device_name", TRANSLATE_NOOP("USB", "Audio Device"),
+						TRANSLATE_NOOP("USB", "Selects the device to read audio from."), "", nullptr, nullptr, nullptr, nullptr,
+						nullptr, &AudioDevice::GetInputDeviceList},
+					{SettingInfo::Type::Integer, "input_latency", TRANSLATE_NOOP("USB", "Audio Latency"),
+						TRANSLATE_NOOP("USB", "Specifies the latency to the host input device."),
+						AudioDevice::DEFAULT_LATENCY_STR, "1", "1000", "1", TRANSLATE_NOOP("USB", "%dms"), nullptr, nullptr, 1.0f},
+				};
+				return info;
+			}
+			case TYPE_OV511P:
+			{
+				static constexpr const SettingInfo info[] = {
+					{SettingInfo::Type::StringList, "device_name", TRANSLATE_NOOP("USB", "Video Device"),
+						TRANSLATE_NOOP("USB", "Selects the device to capture images from."), "", nullptr, nullptr, nullptr,
+						nullptr, nullptr, &VideoDevice::GetDeviceList},
+				};
+				return info;
+			}
+			default:
+				return {};
+		}
 	}
 } // namespace usb_eyetoy

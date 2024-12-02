@@ -77,7 +77,6 @@ target_sources(common PRIVATE
 	Timer.h
 	TextureDecompress.h
 	Threading.h
-	TraceLog.h
 	VectorIntrin.h
 	WAVWriter.h
 	WindowInfo.h
@@ -167,10 +166,16 @@ else()
 	)
 	target_link_libraries(common PRIVATE
 		${DBUS_LINK_LIBRARIES}
-		libbacktrace::libbacktrace
 		X11::X11
 		X11::Xrandr
 	)
+	if(USE_BACKTRACE)
+		target_compile_definitions(common PRIVATE "HAS_LIBBACKTRACE=1")
+		target_link_libraries(common PRIVATE libbacktrace::libbacktrace)
+	endif()
+	if(${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+		target_link_libraries(common PRIVATE cpuinfo)
+	endif()
 endif()
 
 set_source_files_properties(PrecompiledHeader.cpp PROPERTIES HEADER_FILE_ONLY TRUE)

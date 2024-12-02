@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "Common.h"
 #include "CDVD/CDVD.h"
@@ -548,7 +548,7 @@ static void recReserveRAM()
 		recLUT_SetPage(recLUT, hwLUT, recROM1, 0xa000, i, i - 0x1e00);
 	}
 
-	for (int i = 0x1e40; i < 0x1e48; i++)
+	for (int i = 0x1e40; i < 0x1e80; i++)
 	{
 		recLUT_SetPage(recLUT, hwLUT, recROM2, 0x0000, i, i - 0x1e40);
 		recLUT_SetPage(recLUT, hwLUT, recROM2, 0x8000, i, i - 0x1e40);
@@ -691,7 +691,7 @@ static void recExecute()
 	if (!fastjmp_set(&m_SetJmp_StateCheck))
 	{
 		eeCpuExecuting = true;
-		((void(*)())EnterRecompiledCode)();
+		((void (*)())EnterRecompiledCode)();
 
 		// Generally unreachable code here ...
 	}
@@ -1544,7 +1544,7 @@ void dynarecMemcheck(size_t i)
 
 	auto mc = CBreakPoints::GetMemChecks(BREAKPOINT_EE)[i];
 
-	if(mc.hasCond)
+	if (mc.hasCond)
 	{
 		if (!mc.cond.Evaluate())
 			return;
@@ -1557,7 +1557,7 @@ void dynarecMemcheck(size_t i)
 		else
 			DevCon.WriteLn("Hit load breakpoint @0x%x", cpuRegs.pc);
 	}
-	
+
 	CBreakPoints::SetBreakpointTriggered(true, BREAKPOINT_EE);
 	VMManager::SetPaused(true);
 	recExitExecution();
@@ -1707,7 +1707,7 @@ void recompileNextInstruction(bool delayslot, bool swapped_delay_slot)
 	g_pCurInstInfo++;
 
 	// pc might be past s_nEndBlock if the last instruction in the block is a DI.
-	if (pc <= s_nEndBlock)
+	if (pc <= s_nEndBlock && (g_pCurInstInfo + (s_nEndBlock - pc) / 4 + 1) <= s_pInstCache + s_nInstCacheSize)
 	{
 		int count;
 		for (u32 i = 0; i < iREGCNT_GPR; ++i)

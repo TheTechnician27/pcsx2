@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
 
@@ -270,6 +270,7 @@ namespace InputManager
 
 	/// Internal method used by pads to dispatch vibration updates to input sources.
 	/// Intensity is normalized from 0 to 1.
+	void SetUSBVibrationIntensity(u32 port, float large_or_single_motor_intensity, float small_motor_intensity);
 	void SetPadVibrationIntensity(u32 pad_index, float large_or_single_motor_intensity, float small_motor_intensity);
 
 	/// Zeros all vibration intensities. Call when pausing.

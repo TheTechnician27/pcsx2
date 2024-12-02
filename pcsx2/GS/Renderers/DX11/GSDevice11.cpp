@@ -1,5 +1,5 @@
 // SPDX-FileCopyrightText: 2002-2024 PCSX2 Dev Team
-// SPDX-License-Identifier: LGPL-3.0+
+// SPDX-License-Identifier: GPL-3.0+
 
 #include "GS.h"
 #include "GSDevice11.h"
@@ -112,7 +112,7 @@ bool GSDevice11::Create(GSVSyncMode vsync_mode, bool allow_present_throttle)
 	{
 		Host::ReportErrorAsync("GS",
 			fmt::format(
-				"Failed to create D3D device: 0x{:08X}. A GPU which supports Direct3D Feature Level 10.0 is required.",
+				TRANSLATE_FS("GS", "Failed to create D3D device: 0x{:08X}. A GPU which supports Direct3D Feature Level 10.0 is required."),
 				hr));
 		return false;
 	}
@@ -147,7 +147,10 @@ bool GSDevice11::Create(GSVSyncMode vsync_mode, bool allow_present_throttle)
 
 	wil::com_ptr_nothrow<IDXGIDevice> dxgi_device;
 	if (m_dev.try_query_to(&dxgi_device) && SUCCEEDED(dxgi_device->GetParent(IID_PPV_ARGS(dxgi_adapter.put()))))
-		Console.WriteLn(fmt::format("D3D Adapter: {}", D3D::GetAdapterName(dxgi_adapter.get())));
+	{
+		m_name = D3D::GetAdapterName(dxgi_adapter.get());
+		Console.WriteLn(fmt::format("D3D Adapter: {}", m_name));
+	}
 	else
 		Console.Error("Failed to obtain D3D adapter name.");
 
@@ -1603,7 +1606,7 @@ void GSDevice11::DoMerge(GSTexture* sTex[3], GSVector4* sRect, GSTexture* dTex, 
 
 	if (feedback_write_1)
 	{
-		StretchRect(sTex[0], full_r, sTex[2], dRect[2], m_convert.ps[static_cast<int>(ShaderConvert::YUV)].get(),
+		StretchRect(dTex, full_r, sTex[2], dRect[2], m_convert.ps[static_cast<int>(ShaderConvert::YUV)].get(),
 			m_merge.cb.get(), nullptr, linear);
 	}
 }
@@ -2000,9 +2003,9 @@ bool GSDevice11::CreateImGuiResources()
 	// clang-format off
 	static constexpr D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,   0, (UINT)IM_OFFSETOF(ImDrawVert, pos), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,   0, (UINT)IM_OFFSETOF(ImDrawVert, uv),  D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, (UINT)IM_OFFSETOF(ImDrawVert, col), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,   0, (UINT)offsetof(ImDrawVert, pos), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,   0, (UINT)offsetof(ImDrawVert, uv),  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, (UINT)offsetof(ImDrawVert, col), D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	// clang-format on
 
@@ -2653,12 +2656,12 @@ void GSDevice11::RenderHW(GSHWDrawConfig& config)
 	OMSetRenderTargets(hdr_rt ? hdr_rt : config.rt, config.ds, &config.scissor);
 	DrawIndexedPrimitive();
 
-	if (config.blend_second_pass.enable)
+	if (config.blend_multi_pass.enable)
 	{
-		config.ps.blend_hw = config.blend_second_pass.blend_hw;
-		config.ps.dither = config.blend_second_pass.dither;
+		config.ps.blend_hw = config.blend_multi_pass.blend_hw;
+		config.ps.dither = config.blend_multi_pass.dither;
 		SetupPS(config.ps, &config.cb_ps, config.sampler);
-		SetupOM(config.depth, OMBlendSelector(config.colormask, config.blend_second_pass.blend), config.blend_second_pass.blend.constant);
+		SetupOM(config.depth, OMBlendSelector(config.colormask, config.blend_multi_pass.blend), config.blend_multi_pass.blend.constant);
 		DrawIndexedPrimitive();
 	}
 
