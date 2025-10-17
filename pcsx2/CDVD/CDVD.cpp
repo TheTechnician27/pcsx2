@@ -920,9 +920,17 @@ void cdvdReset()
 	cdvd.ReadTime = cdvdBlockReadTime(MODE_DVDROM);
 	cdvd.RotSpeed = cdvdRotationTime(MODE_DVDROM);
 
+	ReadOSDConfigParames();
+
+	// Print timezone offset, DST, date format, and time format.
+	DevCon.WriteLn(Color_StrongGreen, configParams1.timezoneOffset < 0 ? "Timezone Offset: GMT%03d:%02d" : "Timezone Offset: GMT+%02d:%02d",
+				   configParams1.timezoneOffset / 60, std::abs(configParams1.timezoneOffset % 60));
+	DevCon.WriteLn(Color_StrongGreen, "DST: %s Time", GetDaylightSavings() ? "Summer" : "Winter");
+	DevCon.WriteLn(Color_StrongGreen, "Time Format: %s-Hour", GetTimeFormat() ? "12" : "24");
+ 	DevCon.WriteLn(Color_StrongGreen, "Date Format: %s", GetDateFormat() ? (GetDateFormat() == 2 ? "DD/MM/YYYY" : "MM/DD/YYYY") : "YYYY/MM/DD");
+
 	if (EmuConfig.ManuallySetRealTimeClock)
 	{
-		// Convert to GMT+9 (assumes GMT+0)
 		std::tm tm{};
 		tm.tm_sec = EmuConfig.RtcSecond;
 		tm.tm_min = EmuConfig.RtcMinute;
@@ -930,15 +938,17 @@ void cdvdReset()
 		tm.tm_mday = EmuConfig.RtcDay;
 		tm.tm_mon = EmuConfig.RtcMonth - 1;
 		tm.tm_year = EmuConfig.RtcYear + 100; // 2000 - 1900
-		tm.tm_isdst = 1;
+		tm.tm_isdst = 0; // unused but necessary filler
 
-		// Need this instead of mktime for timezone independence
+		// Need this instead of mktime for timezone independence.
 		std::time_t t = 0;
+
+		// Account for user timezone, DST, and GMT+9 defaultism.
 		#if defined(_WIN32)
-			t = _mkgmtime(&tm) + 32400; //60 * 60 * 9 for GMT+9
+			t = _mkgmtime(&tm) + 32400 - 60 * (configParams1.timezoneOffset + GetDaylightSavings() * 60);
 			gmtime_s(&tm, &t);
 		#else
-			t = timegm(&tm) + 32400;
+			t = timegm(&tm) + 32400 - 60 * (configParams1.timezoneOffset + GetDaylightSavings() * 60);
 			gmtime_r(&t, &tm);
 		#endif
 
@@ -981,6 +991,21 @@ void cdvdReset()
 		cdvd.RTC.day = static_cast<u8>(curtime.tm_mday);
 		cdvd.RTC.month = static_cast<u8>(curtime.tm_mon + 1); // WX returns Jan as "0"
 		cdvd.RTC.year = static_cast<u8>(curtime.tm_year - 100); // offset from 2000
+	}
+
+	// Print system time and system time basis.
+	if (EmuConfig.ManuallySetRealTimeClock)
+	{
+		DevCon.WriteLn(Color_StrongGreen, "System Time Basis: Manual RTC");
+		DevCon.WriteLn(Color_StrongGreen, "System Time: 20%02u-%02u-%02u %02u:%02u:%02u",
+				  	   EmuConfig.RtcYear, EmuConfig.RtcMonth, EmuConfig.RtcDay,
+					   EmuConfig.RtcHour, EmuConfig.RtcMinute, EmuConfig.RtcSecond);
+	}
+	else
+	{
+		DevCon.WriteLn(Color_StrongGreen, "System Time Basis: %s", g_InputRecording.isActive() ? "Default Input Recording Time" : "Operating System Time");
+		DevCon.WriteLn(Color_StrongGreen, "System Time: 20%02u-%02u-%02u %02u:%02u:%02u",
+				  	   cdvd.RTC.year, cdvd.RTC.month, cdvd.RTC.day, cdvd.RTC.hour, cdvd.RTC.minute, cdvd.RTC.second);
 	}
 
 	cdvdCtrlTrayClose();
